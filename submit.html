@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>결과물 제출 · 바이브코딩</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #23232f;
+      --border: #2e2e3e;
+      --accent: #7c6ff7;
+      --accent2: #5ee8d4;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --danger: #f87171;
+      --success: #4ade80;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 40px 20px 80px;
+    }
+
+    .container { max-width: 720px; margin: 0 auto; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      margin-bottom: 32px;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124,111,247,0.15);
+      border: 1px solid rgba(124,111,247,0.3);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .page-header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .page-header p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .field { margin-bottom: 18px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    label span.required { color: var(--accent); margin-left: 2px; }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus { border-color: var(--accent); }
+
+    textarea.code {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      resize: vertical;
+      min-height: 160px;
+    }
+
+    textarea.desc {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .name-row { display: flex; gap: 10px; }
+    .name-row input { flex: 1; }
+
+    .btn-lookup {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s;
+    }
+    .btn-lookup:hover { border-color: var(--accent); }
+
+    /* History */
+    .history-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .history-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .history-item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .history-version {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+
+    .history-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .history-time {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .history-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .btn-update {
+      background: rgba(124,111,247,0.15);
+      border: 1px solid rgba(124,111,247,0.3);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-update:hover { background: rgba(124,111,247,0.25); }
+
+    .empty-history {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* New work button */
+    .btn-new-work {
+      width: 100%;
+      background: rgba(94,232,212,0.1);
+      border: 1px dashed rgba(94,232,212,0.4);
+      color: var(--accent2);
+      font-size: 14px;
+      font-weight: 700;
+      padding: 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 12px;
+    }
+    .btn-new-work:hover { background: rgba(94,232,212,0.18); }
+
+    /* Code tabs */
+    .code-section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .code-tabs {
+      display: flex;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-tab-btn {
+      padding: 10px 18px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s;
+      letter-spacing: 0.04em;
+    }
+
+    .code-tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .code-panel { display: none; }
+    .code-panel.active { display: block; }
+
+    .code-panel textarea {
+      border: none;
+      border-radius: 0;
+      background: #13131c;
+    }
+
+    /* Preview */
+    .preview-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .preview-toolbar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preview-toolbar span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .btn-refresh {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: color 0.15s;
+    }
+    .btn-refresh:hover { color: var(--text); }
+
+    #preview-iframe {
+      width: 100%;
+      height: 300px;
+      border: none;
+      display: block;
+    }
+
+    /* Edit banner */
+    .edit-banner {
+      background: rgba(124,111,247,0.1);
+      border: 1px solid rgba(124,111,247,0.3);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-cancel-edit {
+      background: none;
+      border: 1px solid rgba(124,111,247,0.3);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-top: 8px;
+      letter-spacing: -0.01em;
+    }
+    .btn-submit:hover { opacity: 0.9; }
+    .btn-submit:active { transform: scale(0.99); }
+    .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 100px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <a href="index.html" class="back-link">← 쇼케이스로 돌아가기</a>
+
+    <div class="page-header">
+      <div class="badge">✦ Vibe Coding</div>
+      <h1>결과물 제출</h1>
+      <p>클로드가 만들어준 코드를 붙여넣고 제출하세요.<br>새 작품을 추가하거나 기존 작품을 업데이트할 수 있어요.</p>
+    </div>
+
+    <!-- Step 1: 이름 입력 -->
+    <div class="section" id="section-name">
+      <div class="section-title">01 · 학생 확인</div>
+      <div class="field">
+        <label>이름 <span class="required">*</span></label>
+        <div class="name-row">
+          <input type="text" id="input-name" placeholder="홍길동" maxlength="20">
+          <button class="btn-lookup" id="btn-lookup">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: 작품 목록 -->
+    <div class="section" id="section-history" style="display:none">
+      <div class="section-title">02 · 내 작품 목록</div>
+      <div class="history-list" id="history-list">
+        <div class="loading">불러오는 중...</div>
+      </div>
+      <button class="btn-new-work" id="btn-new-work">+ 새 작품 추가</button>
+    </div>
+
+    <!-- Edit banner -->
+    <div class="edit-banner" id="edit-banner" style="display:none">
+      <span id="edit-banner-text">✏️ 수정 모드</span>
+      <button class="btn-cancel-edit" id="btn-cancel-edit">취소</button>
+    </div>
+
+    <!-- Step 3: 코드 입력 -->
+    <div class="section" id="section-form" style="display:none">
+      <div class="section-title" id="form-section-title">03 · 결과물 입력</div>
+
+      <div class="field">
+        <label>제목 <span class="required">*</span></label>
+        <input type="text" id="input-title" placeholder="예: 인터랙티브 파티클" maxlength="50">
+      </div>
+
+      <div class="field">
+        <label>한 줄 설명</label>
+        <textarea class="desc" id="input-desc" placeholder="어떤 걸 만들었는지 간단히 설명해주세요."></textarea>
+      </div>
+
+      <div class="field">
+        <label>코드 <span class="required">*</span></label>
+        <div class="code-section">
+          <div class="code-tabs">
+            <button class="code-tab-btn active" data-panel="html">HTML</button>
+            <button class="code-tab-btn" data-panel="css">CSS</button>
+            <button class="code-tab-btn" data-panel="js">JS</button>
+          </div>
+          <div class="code-panel active" id="panel-html">
+            <textarea class="code" id="code-html" placeholder="HTML 코드를 붙여넣으세요"></textarea>
+          </div>
+          <div class="code-panel" id="panel-css">
+            <textarea class="code" id="code-css" placeholder="CSS 코드를 붙여넣으세요"></textarea>
+          </div>
+          <div class="code-panel" id="panel-js">
+            <textarea class="code" id="code-js" placeholder="JavaScript 코드를 붙여넣으세요"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>미리보기</label>
+        <div class="preview-wrap">
+          <div class="preview-toolbar">
+            <span>Preview</span>
+            <button class="btn-refresh" id="btn-refresh">↺ 새로고침</button>
+          </div>
+          <iframe id="preview-iframe" sandbox="allow-scripts"></iframe>
+        </div>
+      </div>
+
+      <button class="btn-submit" id="btn-submit">제출하기</button>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getFirestore, collection, query, where,
+      orderBy, getDocs, addDoc, updateDoc,
+      doc, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import firebaseConfig from './firebase-config.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let currentName = '';
+    let editingDocId = null;
+    let editingVersion = 1;
+    let isNewWork = false;
+    let studentWorks = [];
+
+    const inputName     = document.getElementById('input-name');
+    const btnLookup     = document.getElementById('btn-lookup');
+    const sectionHistory = document.getElementById('section-history');
+    const historyList   = document.getElementById('history-list');
+    const sectionForm   = document.getElementById('section-form');
+    const editBanner    = document.getElementById('edit-banner');
+    const editBannerText = document.getElementById('edit-banner-text');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
+    const btnNewWork    = document.getElementById('btn-new-work');
+    const inputTitle    = document.getElementById('input-title');
+    const inputDesc     = document.getElementById('input-desc');
+    const codeHtml      = document.getElementById('code-html');
+    const codeCss       = document.getElementById('code-css');
+    const codeJs        = document.getElementById('code-js');
+    const btnSubmit     = document.getElementById('btn-submit');
+    const previewIframe = document.getElementById('preview-iframe');
+    const formSectionTitle = document.getElementById('form-section-title');
+
+    // Code tabs
+    document.querySelectorAll('.code-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.code-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+      });
+    });
+
+    // Preview
+    function updatePreview() {
+      const srcdoc = `<!DOCTYPE html><html><head><style>${codeCss.value}</style></head><body>${codeHtml.value}<script>${codeJs.value}<\/script></body></html>`;
+      previewIframe.srcdoc = srcdoc;
+    }
+
+    document.getElementById('btn-refresh').addEventListener('click', updatePreview);
+    [codeHtml, codeCss, codeJs].forEach(el => {
+      el.addEventListener('input', debounce(updatePreview, 800));
+    });
+
+    function debounce(fn, delay) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+    }
+
+    // Name lookup
+    btnLookup.addEventListener('click', async () => {
+      const name = inputName.value.trim();
+      if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
+      currentName = name;
+      await loadWorks(name);
+    });
+
+    inputName.addEventListener('keydown', e => {
+      if (e.key === 'Enter') btnLookup.click();
+    });
+
+    async function loadWorks(name) {
+      sectionHistory.style.display = 'block';
+      sectionForm.style.display = 'none';
+      editBanner.style.display = 'none';
+      historyList.innerHTML = '<div class="loading">불러오는 중...</div>';
+
+      try {
+        const q = query(
+          collection(db, 'works'),
+          where('studentName', '==', name),
+          orderBy('createdAt', 'desc')
+        );
+        const snap = await getDocs(q);
+        studentWorks = [];
+        snap.forEach(d => studentWorks.push({ id: d.id, ...d.data() }));
+        renderHistory();
+      } catch (e) {
+        console.error(e);
+        historyList.innerHTML = '<div class="loading">불러오기 실패. 다시 시도해주세요.</div>';
+      }
+    }
+
+    function renderHistory() {
+      if (studentWorks.length === 0) {
+        historyList.innerHTML = '<div class="empty-history">아직 제출한 작품이 없어요.<br>아래 버튼으로 첫 번째 작품을 제출해보세요!</div>';
+        return;
+      }
+      historyList.innerHTML = '';
+      studentWorks.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        const date = item.updatedAt?.toDate?.()
+          ? item.updatedAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+          : (item.createdAt?.toDate?.()
+            ? item.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+            : '');
+        const version = item.version || 1;
+        div.innerHTML = `
+          <div class="history-item-left">
+            <span class="history-version">v${version}</span>
+            <span class="history-title">${escapeHtml(item.title || '(제목 없음)')}</span>
+            <span class="history-time">${date} 업데이트</span>
+          </div>
+          <div class="history-actions">
+            <button class="btn-update" data-id="${item.id}">업데이트</button>
+          </div>
+        `;
+        div.querySelector('.btn-update').addEventListener('click', () => startUpdate(item));
+        historyList.appendChild(div);
+      });
+    }
+
+    // 새 작품 추가
+    btnNewWork.addEventListener('click', () => {
+      editingDocId = null;
+      isNewWork = true;
+      resetForm();
+      editBanner.style.display = 'none';
+      formSectionTitle.textContent = '03 · 새 작품 입력';
+      btnSubmit.textContent = '새 작품 제출';
+      sectionForm.style.display = 'block';
+      sectionForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // 업데이트
+    function startUpdate(item) {
+      editingDocId = item.id;
+      editingVersion = (item.version || 1) + 1;
+      isNewWork = false;
+      inputTitle.value = item.title || '';
+      inputDesc.value  = item.description || '';
+      codeHtml.value   = item.html || '';
+      codeCss.value    = item.css || '';
+      codeJs.value     = item.js || '';
+      updatePreview();
+      editBanner.style.display = 'flex';
+      editBannerText.textContent = `↑ "${escapeHtml(item.title)}" 업데이트 중 (v${item.version || 1} → v${editingVersion})`;
+      formSectionTitle.textContent = '03 · 업데이트 내용 입력';
+      btnSubmit.textContent = `v${editingVersion}으로 업데이트`;
+      sectionForm.style.display = 'block';
+      sectionForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    btnCancelEdit.addEventListener('click', () => {
+      editingDocId = null;
+      isNewWork = false;
+      editBanner.style.display = 'none';
+      sectionForm.style.display = 'none';
+      resetForm();
+    });
+
+    function resetForm() {
+      inputTitle.value = '';
+      inputDesc.value  = '';
+      codeHtml.value   = '';
+      codeCss.value    = '';
+      codeJs.value     = '';
+      previewIframe.srcdoc = '';
+    }
+
+    // Submit
+    btnSubmit.addEventListener('click', async () => {
+      if (!currentName) { showToast('이름을 먼저 입력해주세요.', 'error'); return; }
+      if (!inputTitle.value.trim()) { showToast('제목을 입력해주세요.', 'error'); return; }
+      if (!codeHtml.value.trim() && !codeCss.value.trim() && !codeJs.value.trim()) {
+        showToast('코드를 하나 이상 입력해주세요.', 'error'); return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = '저장 중...';
+
+      const data = {
+        studentName: currentName,
+        title: inputTitle.value.trim(),
+        description: inputDesc.value.trim(),
+        html: codeHtml.value,
+        css: codeCss.value,
+        js: codeJs.value,
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        if (editingDocId) {
+          // 업데이트: 버전 증가
+          await updateDoc(doc(db, 'works', editingDocId), {
+            ...data,
+            version: editingVersion,
+          });
+          showToast(`v${editingVersion}으로 업데이트되었습니다! ✓`, 'success');
+          editingDocId = null;
+          editBanner.style.display = 'none';
+        } else {
+          // 새 작품
+          await addDoc(collection(db, 'works'), {
+            ...data,
+            version: 1,
+            createdAt: serverTimestamp(),
+          });
+          showToast('새 작품이 제출되었습니다! ✓', 'success');
+        }
+
+        sectionForm.style.display = 'none';
+        resetForm();
+        await loadWorks(currentName);
+      } catch (e) {
+        console.error(e);
+        showToast('저장 실패. 다시 시도해주세요.', 'error');
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = '제출하기';
+      }
+    });
+
+    function showToast(msg, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+
+</body>
+</html>

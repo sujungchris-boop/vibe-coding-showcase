@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>학생 프로필 · 바이브코딩</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #23232f;
+      --border: #2e2e3e;
+      --accent: #7c6ff7;
+      --accent2: #5ee8d4;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --radius: 14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    .back-bar {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    /* Profile header */
+    .profile-header {
+      padding: 48px 24px 40px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(124,111,247,0.12) 0%, transparent 70%);
+    }
+
+    .avatar-large {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: white;
+      margin: 0 auto 16px;
+    }
+
+    .profile-name {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .profile-stats {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 20px;
+    }
+
+    .profile-stat-number {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .profile-stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Grid */
+    .grid-section {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 12px 40px rgba(124,111,247,0.2);
+    }
+
+    .card-preview {
+      position: relative;
+      width: 100%;
+      height: 180px;
+      background: var(--surface2);
+      overflow: hidden;
+    }
+
+    .card-preview iframe {
+      width: 200%;
+      height: 200%;
+      transform: scale(0.5);
+      transform-origin: top left;
+      pointer-events: none;
+      border: none;
+    }
+
+    .card-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 50%, rgba(26,26,36,0.85) 100%);
+    }
+
+    .card-version {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(94,232,212,0.15);
+      border: 1px solid rgba(94,232,212,0.3);
+      color: var(--accent2);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 100px;
+    }
+
+    .card-body { padding: 14px 16px 16px; }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .state-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <div class="back-bar">
+    <a href="index.html" class="back-link">← 전체 보기</a>
+  </div>
+
+  <div class="profile-header">
+    <div class="avatar-large" id="avatar"></div>
+    <div class="profile-name" id="profile-name">불러오는 중...</div>
+    <div class="profile-stats">
+      <div>
+        <div class="profile-stat-number" id="stat-works">-</div>
+        <div class="profile-stat-label">작품</div>
+      </div>
+      <div>
+        <div class="profile-stat-number" id="stat-versions">-</div>
+        <div class="profile-stat-label">총 업데이트</div>
+      </div>
+    </div>
+  </div>
+
+  <section class="grid-section">
+    <div class="grid" id="grid">
+      <div class="state-msg">불러오는 중...</div>
+    </div>
+  </section>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getFirestore, collection, query, where,
+      orderBy, onSnapshot
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import firebaseConfig from './firebase-config.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const params = new URLSearchParams(location.search);
+    const studentName = params.get('name');
+
+    if (!studentName) {
+      document.getElementById('profile-name').textContent = '학생을 찾을 수 없습니다.';
+    } else {
+      document.title = `${studentName} · 바이브코딩`;
+      document.getElementById('profile-name').textContent = studentName;
+      const color = nameToColor(studentName);
+      const avatar = document.getElementById('avatar');
+      avatar.style.background = color;
+      avatar.textContent = studentName[0];
+
+      const q = query(
+        collection(db, 'works'),
+        where('studentName', '==', studentName),
+        orderBy('createdAt', 'desc')
+      );
+
+      onSnapshot(q, snap => {
+        const works = [];
+        snap.forEach(d => works.push({ id: d.id, ...d.data() }));
+        renderProfile(works);
+      }, err => {
+        console.error(err);
+        document.getElementById('grid').innerHTML = '<div class="state-msg">불러오기 실패.</div>';
+      });
+    }
+
+    function renderProfile(works) {
+      document.getElementById('stat-works').textContent = works.length;
+      const totalVersions = works.reduce((acc, w) => acc + ((w.version || 1) - 1), 0);
+      document.getElementById('stat-versions').textContent = totalVersions;
+
+      const grid = document.getElementById('grid');
+      if (works.length === 0) {
+        grid.innerHTML = '<div class="state-msg">아직 제출된 작품이 없어요.</div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      works.forEach(w => {
+        const card = document.createElement('a');
+        card.className = 'card';
+        card.href = `work?id=${w.id}`;
+        const srcdoc = buildSrcdoc(w);
+        const version = w.version || 1;
+        card.innerHTML = `
+          <div class="card-preview">
+            <iframe srcdoc="${escapeAttr(srcdoc)}" sandbox="allow-scripts" loading="lazy"></iframe>
+            <div class="card-overlay"></div>
+            <span class="card-version">v${version}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-title">${escapeHtml(w.title || '(제목 없음)')}</div>
+            <div class="card-desc">${escapeHtml(w.description || '')}</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function buildSrcdoc(w) {
+      return `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function nameToColor(name) {
+      let hash = 0;
+      for (const ch of name) hash = ch.charCodeAt(0) + (hash << 5) - hash;
+      const h = Math.abs(hash) % 360;
+      return `hsl(${h}, 55%, 45%)`;
+    }
+  </script>
+
+</body>
+</html>

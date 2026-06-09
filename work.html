@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>작품 보기 · 바이브코딩</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #23232f;
+      --border: #2e2e3e;
+      --accent: #7c6ff7;
+      --accent2: #5ee8d4;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .student-link {
+      color: var(--accent2);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .student-link:hover { text-decoration: underline; }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .version-badge {
+      background: rgba(94,232,212,0.12);
+      border: 1px solid rgba(94,232,212,0.25);
+      color: var(--accent2);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    /* Preview */
+    .preview-container {
+      width: 100%;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #work-iframe {
+      width: 100%;
+      height: 60vh;
+      border: none;
+      display: block;
+    }
+
+    /* Info + Comments */
+    .content {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    .work-info {
+      margin-bottom: 40px;
+    }
+
+    .work-title {
+      font-size: clamp(22px, 4vw, 32px);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .work-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* Comments */
+    .comments-section {}
+
+    .comments-header {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .comment-count {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 100px;
+    }
+
+    .comment-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .comment-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .comment-author {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent2);
+    }
+
+    .comment-time {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .comment-body {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .empty-comments {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+    }
+
+    /* Comment form */
+    .comment-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .comment-form-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 14px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .comment-form input,
+    .comment-form textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.15s;
+      margin-bottom: 10px;
+    }
+
+    .comment-form input:focus,
+    .comment-form textarea:focus { border-color: var(--accent); }
+
+    .comment-form textarea {
+      min-height: 90px;
+      resize: vertical;
+      margin-bottom: 0;
+    }
+
+    .comment-form-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .comment-form-row input { margin-bottom: 0; flex: 1; }
+
+    .btn-comment {
+      background: var(--accent);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-comment:hover { opacity: 0.85; }
+    .btn-comment:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 100px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { border-color: #f87171; color: #f87171; }
+    .toast.success { border-color: #4ade80; color: #4ade80; }
+
+    .loading-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <a href="index.html" class="back-link">← 전체 보기</a>
+    <div class="topbar-meta" id="topbar-meta"></div>
+  </div>
+
+  <div id="main-loading" class="loading-state">불러오는 중...</div>
+
+  <div id="main-content" style="display:none">
+    <div class="preview-container">
+      <iframe id="work-iframe" sandbox="allow-scripts" title="작품 미리보기"></iframe>
+    </div>
+
+    <div class="content">
+      <div class="work-info">
+        <h1 class="work-title" id="work-title"></h1>
+        <p class="work-desc" id="work-desc"></p>
+      </div>
+
+      <div class="comments-section">
+        <div class="comments-header">
+          피드백
+          <span class="comment-count" id="comment-count">0</span>
+        </div>
+
+        <div class="comment-list" id="comment-list"></div>
+
+        <div class="comment-form">
+          <div class="comment-form-title">피드백 남기기</div>
+          <div class="comment-form-row">
+            <input type="text" id="comment-author" placeholder="이름" maxlength="20">
+            <button class="btn-comment" id="btn-comment">남기기</button>
+          </div>
+          <textarea id="comment-body" placeholder="작품에 대한 생각을 자유롭게 남겨주세요." maxlength="500"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getFirestore, doc, getDoc, collection,
+      query, where, orderBy, onSnapshot, addDoc, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import firebaseConfig from './firebase-config.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const params = new URLSearchParams(location.search);
+    const workId = params.get('id');
+
+    if (!workId) {
+      document.getElementById('main-loading').textContent = '잘못된 접근입니다.';
+    } else {
+      loadWork();
+    }
+
+    async function loadWork() {
+      try {
+        const snap = await getDoc(doc(db, 'works', workId));
+        if (!snap.exists()) {
+          document.getElementById('main-loading').textContent = '작품을 찾을 수 없습니다.';
+          return;
+        }
+        const w = { id: snap.id, ...snap.data() };
+        renderWork(w);
+        listenComments();
+      } catch (e) {
+        console.error(e);
+        document.getElementById('main-loading').textContent = '불러오기 실패. 다시 시도해주세요.';
+      }
+    }
+
+    function renderWork(w) {
+      document.title = `${w.title || '작품'} · 바이브코딩`;
+
+      // Topbar
+      const version = w.version || (w.round ? w.round : 'v1');
+      const versionLabel = typeof version === 'number' ? `v${version}` : version;
+      const color = nameToColor(w.studentName || '');
+      document.getElementById('topbar-meta').innerHTML = `
+        <a class="student-link" href="student?name=${encodeURIComponent(w.studentName)}">
+          <span class="avatar" style="background:${color}">${(w.studentName||'?')[0]}</span>
+          ${escapeHtml(w.studentName)}
+        </a>
+        <span class="version-badge">${escapeHtml(versionLabel)}</span>
+      `;
+
+      // Work info
+      document.getElementById('work-title').textContent = w.title || '(제목 없음)';
+      document.getElementById('work-desc').textContent = w.description || '';
+
+      // iframe
+      const srcdoc = `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
+      document.getElementById('work-iframe').srcdoc = srcdoc;
+
+      document.getElementById('main-loading').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    }
+
+    function listenComments() {
+      const q = query(
+        collection(db, 'comments'),
+        where('workId', '==', workId),
+        orderBy('createdAt', 'asc')
+      );
+      onSnapshot(q, snap => {
+        const comments = [];
+        snap.forEach(d => comments.push({ id: d.id, ...d.data() }));
+        renderComments(comments);
+      }, err => console.error(err));
+    }
+
+    function renderComments(comments) {
+      document.getElementById('comment-count').textContent = comments.length;
+      const list = document.getElementById('comment-list');
+
+      if (comments.length === 0) {
+        list.innerHTML = '<div class="empty-comments">아직 피드백이 없어요. 첫 번째 피드백을 남겨보세요!</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+      comments.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'comment-item';
+        const time = c.createdAt?.toDate?.()
+          ? c.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+          : '';
+        div.innerHTML = `
+          <div class="comment-header">
+            <span class="comment-author">${escapeHtml(c.author || '익명')}</span>
+            <span class="comment-time">${time}</span>
+          </div>
+          <div class="comment-body">${escapeHtml(c.content)}</div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // Submit comment
+    document.getElementById('btn-comment').addEventListener('click', async () => {
+      const author = document.getElementById('comment-author').value.trim();
+      const content = document.getElementById('comment-body').value.trim();
+
+      if (!content) { showToast('피드백 내용을 입력해주세요.', 'error'); return; }
+
+      const btn = document.getElementById('btn-comment');
+      btn.disabled = true;
+
+      try {
+        await addDoc(collection(db, 'comments'), {
+          workId,
+          author: author || '익명',
+          content,
+          createdAt: serverTimestamp(),
+        });
+        document.getElementById('comment-author').value = '';
+        document.getElementById('comment-body').value = '';
+        showToast('피드백이 등록되었습니다!', 'success');
+      } catch (e) {
+        console.error(e);
+        showToast('등록 실패. 다시 시도해주세요.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function nameToColor(name) {
+      let hash = 0;
+      for (const ch of name) hash = ch.charCodeAt(0) + (hash << 5) - hash;
+      const h = Math.abs(hash) % 360;
+      return `hsl(${h}, 55%, 45%)`;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function showToast(msg, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+  </script>
+
+</body>
+</html>
