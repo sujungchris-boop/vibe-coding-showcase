@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 · 바이브코딩</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #23232f;
+      --border: #2e2e3e;
+      --accent: #7c6ff7;
+      --accent2: #5ee8d4;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --danger: #f87171;
+      --success: #4ade80;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Login ── */
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .login-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .field { margin-bottom: 14px; }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    .field input:focus { border-color: var(--accent); }
+
+    .btn-login {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 12px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.15s;
+    }
+    .btn-login:hover { opacity: 0.85; }
+
+    /* ── Admin layout ── */
+    #admin-app { display: none; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .badge-admin {
+      background: rgba(124,111,247,0.15);
+      border: 1px solid rgba(124,111,247,0.3);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 100px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+    .btn-logout {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-logout:hover { color: var(--danger); border-color: var(--danger); }
+
+    .back-link {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    /* ── Main ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .stat-card-num {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-card-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 18px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Table */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      background: var(--surface2);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    tbody td {
+      padding: 14px 16px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    .td-muted { color: var(--muted); font-size: 12px; }
+
+    .preview-thumb {
+      width: 60px;
+      height: 44px;
+      background: var(--surface2);
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .preview-thumb iframe {
+      width: 200%;
+      height: 200%;
+      transform: scale(0.5);
+      transform-origin: top left;
+      pointer-events: none;
+      border: none;
+    }
+
+    .work-cell { display: flex; align-items: center; gap: 12px; }
+
+    .version-chip {
+      background: rgba(94,232,212,0.12);
+      border: 1px solid rgba(94,232,212,0.25);
+      color: var(--accent2);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 100px;
+    }
+
+    .btn-delete {
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-delete:hover { background: rgba(248,113,113,0.2); }
+
+    .empty-row td {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .loading-row td {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 100px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    /* Confirm dialog */
+    .confirm-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .confirm-backdrop.open { display: flex; }
+
+    .confirm-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      max-width: 360px;
+      width: 90%;
+    }
+
+    .confirm-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .confirm-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .confirm-actions { display: flex; gap: 10px; }
+
+    .btn-confirm-delete {
+      flex: 1;
+      background: var(--danger);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-confirm-delete:hover { opacity: 0.85; }
+
+    .btn-confirm-cancel {
+      flex: 1;
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <div class="login-wrap" id="login-wrap">
+    <div class="login-box">
+      <div class="login-title">관리자 로그인</div>
+      <div class="login-sub">바이브코딩 쇼케이스 관리자 페이지</div>
+      <div class="field">
+        <label>아이디</label>
+        <input type="text" id="login-id" placeholder="admin" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input type="password" id="login-pw" placeholder="비밀번호 입력">
+      </div>
+      <button class="btn-login" id="btn-login">로그인</button>
+    </div>
+  </div>
+
+  <!-- Admin App -->
+  <div id="admin-app">
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title">바이브코딩 관리자</span>
+        <span class="badge-admin">Admin</span>
+      </div>
+      <div class="topbar-right">
+        <a href="index.html" class="back-link">← 쇼케이스</a>
+        <button class="btn-logout" id="btn-logout">로그아웃</button>
+      </div>
+    </div>
+
+    <div class="main">
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-num" id="s-students">-</div>
+          <div class="stat-card-label">학생</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-num" id="s-works">-</div>
+          <div class="stat-card-label">작품</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-num" id="s-comments">-</div>
+          <div class="stat-card-label">댓글</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-num" id="s-versions">-</div>
+          <div class="stat-card-label">총 업데이트</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="students">학생 관리</button>
+        <button class="tab-btn" data-tab="works">작품 관리</button>
+        <button class="tab-btn" data-tab="comments">댓글 관리</button>
+      </div>
+
+      <!-- Students tab -->
+      <div class="tab-panel active" id="tab-students">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>작품 수</th>
+                <th>등록일</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-students">
+              <tr class="loading-row"><td colspan="4">불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Works tab -->
+      <div class="tab-panel" id="tab-works">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>미리보기</th>
+                <th>제목</th>
+                <th>학생</th>
+                <th>버전</th>
+                <th>날짜</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-works">
+              <tr class="loading-row"><td colspan="6">불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Comments tab -->
+      <div class="tab-panel" id="tab-comments">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>작성자</th>
+                <th>내용</th>
+                <th>작품</th>
+                <th>날짜</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-comments">
+              <tr class="loading-row"><td colspan="5">불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Confirm dialog -->
+  <div class="confirm-backdrop" id="confirm-backdrop">
+    <div class="confirm-box">
+      <div class="confirm-title" id="confirm-title">삭제하시겠어요?</div>
+      <div class="confirm-desc" id="confirm-desc">이 작업은 되돌릴 수 없습니다.</div>
+      <div class="confirm-actions">
+        <button class="btn-confirm-cancel" id="btn-confirm-cancel">취소</button>
+        <button class="btn-confirm-delete" id="btn-confirm-delete">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getFirestore, collection, query, where,
+      orderBy, getDocs, deleteDoc, doc, onSnapshot
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import firebaseConfig from './firebase-config.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // ── Login ──
+    const ADMIN_ID = 'admin';
+    const ADMIN_PW = 'chrisna';
+
+    document.getElementById('btn-login').addEventListener('click', tryLogin);
+    document.getElementById('login-pw').addEventListener('keydown', e => {
+      if (e.key === 'Enter') tryLogin();
+    });
+
+    function tryLogin() {
+      const id = document.getElementById('login-id').value.trim();
+      const pw = document.getElementById('login-pw').value;
+      if (id === ADMIN_ID && pw === ADMIN_PW) {
+        document.getElementById('login-wrap').style.display = 'none';
+        document.getElementById('admin-app').style.display = 'block';
+        loadAll();
+      } else {
+        showToast('아이디 또는 비밀번호가 틀렸습니다.', 'error');
+      }
+    }
+
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      document.getElementById('admin-app').style.display = 'none';
+      document.getElementById('login-wrap').style.display = 'flex';
+      document.getElementById('login-id').value = '';
+      document.getElementById('login-pw').value = '';
+    });
+
+    // ── Tabs ──
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── Load all data ──
+    let allStudents = [], allWorks = [], allComments = [];
+
+    function loadAll() {
+      // Students
+      onSnapshot(collection(db, 'students'), snap => {
+        allStudents = [];
+        snap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+        renderStudents();
+        updateStats();
+      });
+
+      // Works
+      onSnapshot(query(collection(db, 'works'), orderBy('createdAt', 'desc')), snap => {
+        allWorks = [];
+        snap.forEach(d => allWorks.push({ id: d.id, ...d.data() }));
+        renderWorks();
+        updateStats();
+      });
+
+      // Comments
+      onSnapshot(query(collection(db, 'comments'), orderBy('createdAt', 'desc')), snap => {
+        allComments = [];
+        snap.forEach(d => allComments.push({ id: d.id, ...d.data() }));
+        renderComments();
+        updateStats();
+      });
+    }
+
+    function updateStats() {
+      document.getElementById('s-students').textContent = allStudents.length;
+      document.getElementById('s-works').textContent = allWorks.length;
+      document.getElementById('s-comments').textContent = allComments.length;
+      const totalUpdates = allWorks.reduce((acc, w) => acc + ((w.version || 1) - 1), 0);
+      document.getElementById('s-versions').textContent = totalUpdates;
+    }
+
+    // ── Students ──
+    function renderStudents() {
+      const tbody = document.getElementById('tbody-students');
+      if (allStudents.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">등록된 학생이 없습니다.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      allStudents.forEach(s => {
+        const workCount = allWorks.filter(w => w.studentName === s.name).length;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(s.name)}</strong></td>
+          <td class="td-muted">${workCount}개</td>
+          <td class="td-muted">—</td>
+          <td>
+            <button class="btn-delete" data-type="student" data-id="${s.id}" data-name="${escapeHtml(s.name)}">삭제</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      bindDeleteBtns();
+    }
+
+    // ── Works ──
+    function renderWorks() {
+      const tbody = document.getElementById('tbody-works');
+      if (allWorks.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">등록된 작품이 없습니다.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      allWorks.forEach(w => {
+        const srcdoc = buildSrcdoc(w);
+        const date = w.createdAt?.toDate?.()
+          ? w.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric' })
+          : '—';
+        const version = w.version || 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="preview-thumb">
+              <iframe srcdoc="${escapeAttr(srcdoc)}" sandbox="allow-scripts" loading="lazy"></iframe>
+            </div>
+          </td>
+          <td><strong>${escapeHtml(w.title || '(제목 없음)')}</strong><br><span class="td-muted">${escapeHtml(w.description || '')}</span></td>
+          <td>${escapeHtml(w.studentName || '—')}</td>
+          <td><span class="version-chip">v${version}</span></td>
+          <td class="td-muted">${date}</td>
+          <td>
+            <button class="btn-delete" data-type="work" data-id="${w.id}" data-name="${escapeHtml(w.title || '작품')}">삭제</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      bindDeleteBtns();
+    }
+
+    // ── Comments ──
+    function renderComments() {
+      const tbody = document.getElementById('tbody-comments');
+      if (allComments.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">댓글이 없습니다.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      allComments.forEach(c => {
+        const work = allWorks.find(w => w.id === c.workId);
+        const date = c.createdAt?.toDate?.()
+          ? c.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+          : '—';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(c.author || '익명')}</strong></td>
+          <td>${escapeHtml(c.content)}</td>
+          <td class="td-muted">${escapeHtml(work?.title || c.workId)}</td>
+          <td class="td-muted">${date}</td>
+          <td>
+            <button class="btn-delete" data-type="comment" data-id="${c.id}" data-name="이 댓글">삭제</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      bindDeleteBtns();
+    }
+
+    // ── Delete ──
+    let pendingDelete = null;
+
+    function bindDeleteBtns() {
+      document.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+          pendingDelete = { type: btn.dataset.type, id: btn.dataset.id, name: btn.dataset.name };
+          const labels = { student: '학생 계정', work: '작품', comment: '댓글' };
+          document.getElementById('confirm-title').textContent = `${labels[pendingDelete.type]} 삭제`;
+          document.getElementById('confirm-desc').textContent =
+            `"${pendingDelete.name}"을(를) 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다.`;
+          document.getElementById('confirm-backdrop').classList.add('open');
+        });
+      });
+    }
+
+    document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+      document.getElementById('confirm-backdrop').classList.remove('open');
+      pendingDelete = null;
+    });
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+      if (!pendingDelete) return;
+      const { type, id, name } = pendingDelete;
+      document.getElementById('confirm-backdrop').classList.remove('open');
+      pendingDelete = null;
+
+      try {
+        const colMap = { student: 'students', work: 'works', comment: 'comments' };
+        await deleteDoc(doc(db, colMap[type], id));
+        showToast(`삭제되었습니다.`, 'success');
+      } catch (e) {
+        console.error(e);
+        showToast('삭제 실패. 다시 시도해주세요.', 'error');
+      }
+    });
+
+    // ── Helpers ──
+    function buildSrcdoc(w) {
+      return `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function showToast(msg, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+  </script>
+
+</body>
+</html>
