@@ -456,6 +456,10 @@
         <label>비밀번호 확인 <span class="required">*</span></label>
         <input type="password" id="input-password-confirm" placeholder="비밀번호를 다시 입력하세요" maxlength="30">
       </div>
+      <div class="field" id="admin-code-field" style="display:none">
+        <label>관리자 코드 <span class="required">*</span></label>
+        <input type="password" id="input-admin-code" placeholder="관리자 코드를 입력하세요" maxlength="30">
+      </div>
       <button class="btn-submit" id="btn-pw-submit" style="margin-top:0">확인</button>
     </div>
 
@@ -656,6 +660,8 @@
         ? '새 비밀번호 설정 <span class="required">*</span>'
         : '비밀번호 <span class="required">*</span>';
       document.getElementById('pw-confirm-field').style.display = isNew ? 'block' : 'none';
+      document.getElementById('admin-code-field').style.display = isNew ? 'block' : 'none';
+      document.getElementById('input-admin-code').value = '';
       document.getElementById('input-password').value = '';
       document.getElementById('input-password-confirm').value = '';
       document.getElementById('input-password').focus();
@@ -675,6 +681,8 @@
         if (isNewStudent) {
           const pwConfirm = document.getElementById('input-password-confirm').value;
           if (pw !== pwConfirm) { showToast('비밀번호가 일치하지 않아요.', 'error'); return; }
+          const adminCode = document.getElementById('input-admin-code').value;
+          if (adminCode !== 'chrisna') { showToast('관리자 코드가 올바르지 않아요.', 'error'); return; }
           await setDoc(doc(db, 'students', currentName), { name: currentName, password: pw });
           showToast('비밀번호가 설정되었습니다!', 'success');
         } else {
