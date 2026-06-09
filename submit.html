@@ -227,6 +227,24 @@
       font-size: 13px;
     }
 
+    /* Change password button */
+    .btn-change-pw {
+      width: 100%;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      margin-top: 8px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-change-pw:hover { border-color: var(--accent); color: var(--accent); }
+
+    .pw-change-modal { margin-bottom: 16px; }
+
     /* New work button */
     .btn-new-work {
       width: 100%;
@@ -427,13 +445,51 @@
       </div>
     </div>
 
-    <!-- Step 2: 작품 목록 -->
+    <!-- Step 2: 비밀번호 -->
+    <div class="section" id="section-password" style="display:none">
+      <div class="section-title" id="pw-section-title">02 · 비밀번호</div>
+      <div class="field">
+        <label id="pw-label">비밀번호 <span class="required">*</span></label>
+        <input type="password" id="input-password" placeholder="비밀번호를 입력하세요" maxlength="30">
+      </div>
+      <div class="field" id="pw-confirm-field" style="display:none">
+        <label>비밀번호 확인 <span class="required">*</span></label>
+        <input type="password" id="input-password-confirm" placeholder="비밀번호를 다시 입력하세요" maxlength="30">
+      </div>
+      <button class="btn-submit" id="btn-pw-submit" style="margin-top:0">확인</button>
+    </div>
+
+    <!-- Step 3: 작품 목록 -->
     <div class="section" id="section-history" style="display:none">
-      <div class="section-title">02 · 내 작품 목록</div>
+      <div class="section-title">03 · 내 작품 목록</div>
       <div class="history-list" id="history-list">
         <div class="loading">불러오는 중...</div>
       </div>
       <button class="btn-new-work" id="btn-new-work">+ 새 작품 추가</button>
+      <button class="btn-change-pw" id="btn-change-pw">🔑 비밀번호 변경</button>
+    </div>
+
+    <!-- 비밀번호 변경 모달 -->
+    <div class="pw-change-modal" id="pw-change-modal" style="display:none">
+      <div class="section">
+        <div class="section-title">비밀번호 변경</div>
+        <div class="field">
+          <label>현재 비밀번호 <span class="required">*</span></label>
+          <input type="password" id="input-pw-current" placeholder="현재 비밀번호" maxlength="30">
+        </div>
+        <div class="field">
+          <label>새 비밀번호 <span class="required">*</span></label>
+          <input type="password" id="input-pw-new" placeholder="새 비밀번호" maxlength="30">
+        </div>
+        <div class="field">
+          <label>새 비밀번호 확인 <span class="required">*</span></label>
+          <input type="password" id="input-pw-new-confirm" placeholder="새 비밀번호 다시 입력" maxlength="30">
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn-submit" id="btn-pw-change-submit" style="margin-top:0">변경하기</button>
+          <button class="btn-cancel-edit" id="btn-pw-change-cancel" style="padding:10px 20px">취소</button>
+        </div>
+      </div>
     </div>
 
     <!-- Edit banner -->
@@ -499,7 +555,7 @@
     import {
       getFirestore, collection, query, where,
       orderBy, getDocs, addDoc, updateDoc,
-      doc, serverTimestamp
+      doc, getDoc, setDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
 
@@ -507,27 +563,30 @@
     const db = getFirestore(app);
 
     let currentName = '';
+    let studentDocId = null;
+    let isNewStudent = false;
     let editingDocId = null;
     let editingVersion = 1;
     let isNewWork = false;
     let studentWorks = [];
 
-    const inputName     = document.getElementById('input-name');
-    const btnLookup     = document.getElementById('btn-lookup');
-    const sectionHistory = document.getElementById('section-history');
-    const historyList   = document.getElementById('history-list');
-    const sectionForm   = document.getElementById('section-form');
-    const editBanner    = document.getElementById('edit-banner');
-    const editBannerText = document.getElementById('edit-banner-text');
-    const btnCancelEdit = document.getElementById('btn-cancel-edit');
-    const btnNewWork    = document.getElementById('btn-new-work');
-    const inputTitle    = document.getElementById('input-title');
-    const inputDesc     = document.getElementById('input-desc');
-    const codeHtml      = document.getElementById('code-html');
-    const codeCss       = document.getElementById('code-css');
-    const codeJs        = document.getElementById('code-js');
-    const btnSubmit     = document.getElementById('btn-submit');
-    const previewIframe = document.getElementById('preview-iframe');
+    const inputName       = document.getElementById('input-name');
+    const btnLookup       = document.getElementById('btn-lookup');
+    const sectionPassword = document.getElementById('section-password');
+    const sectionHistory  = document.getElementById('section-history');
+    const historyList     = document.getElementById('history-list');
+    const sectionForm     = document.getElementById('section-form');
+    const editBanner      = document.getElementById('edit-banner');
+    const editBannerText  = document.getElementById('edit-banner-text');
+    const btnCancelEdit   = document.getElementById('btn-cancel-edit');
+    const btnNewWork      = document.getElementById('btn-new-work');
+    const inputTitle      = document.getElementById('input-title');
+    const inputDesc       = document.getElementById('input-desc');
+    const codeHtml        = document.getElementById('code-html');
+    const codeCss         = document.getElementById('code-css');
+    const codeJs          = document.getElementById('code-js');
+    const btnSubmit       = document.getElementById('btn-submit');
+    const previewIframe   = document.getElementById('preview-iframe');
     const formSectionTitle = document.getElementById('form-section-title');
 
     // Code tabs
@@ -556,18 +615,131 @@
       return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
     }
 
-    // Name lookup
+    // ── Step 1: 이름 확인 ──
     btnLookup.addEventListener('click', async () => {
       const name = inputName.value.trim();
       if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
       currentName = name;
-      await loadWorks(name);
+      btnLookup.disabled = true;
+      btnLookup.textContent = '확인 중...';
+
+      try {
+        const snap = await getDoc(doc(db, 'students', name));
+        if (snap.exists()) {
+          // 기존 학생 → 비밀번호 입력
+          isNewStudent = false;
+          studentDocId = name;
+          showPasswordForm(false);
+        } else {
+          // 신규 학생 → 비밀번호 설정
+          isNewStudent = true;
+          studentDocId = name;
+          showPasswordForm(true);
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
+      } finally {
+        btnLookup.disabled = false;
+        btnLookup.textContent = '확인';
+      }
     });
 
     inputName.addEventListener('keydown', e => {
       if (e.key === 'Enter') btnLookup.click();
     });
 
+    function showPasswordForm(isNew) {
+      sectionPassword.style.display = 'block';
+      document.getElementById('pw-section-title').textContent = isNew ? '02 · 비밀번호 설정' : '02 · 비밀번호 입력';
+      document.getElementById('pw-label').innerHTML = isNew
+        ? '새 비밀번호 설정 <span class="required">*</span>'
+        : '비밀번호 <span class="required">*</span>';
+      document.getElementById('pw-confirm-field').style.display = isNew ? 'block' : 'none';
+      document.getElementById('input-password').value = '';
+      document.getElementById('input-password-confirm').value = '';
+      document.getElementById('input-password').focus();
+      sectionPassword.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── Step 2: 비밀번호 확인/설정 ──
+    document.getElementById('btn-pw-submit').addEventListener('click', async () => {
+      const pw = document.getElementById('input-password').value;
+      if (!pw) { showToast('비밀번호를 입력해주세요.', 'error'); return; }
+
+      const btn = document.getElementById('btn-pw-submit');
+      btn.disabled = true;
+      btn.textContent = '확인 중...';
+
+      try {
+        if (isNewStudent) {
+          const pwConfirm = document.getElementById('input-password-confirm').value;
+          if (pw !== pwConfirm) { showToast('비밀번호가 일치하지 않아요.', 'error'); return; }
+          await setDoc(doc(db, 'students', currentName), { name: currentName, password: pw });
+          showToast('비밀번호가 설정되었습니다!', 'success');
+        } else {
+          const snap = await getDoc(doc(db, 'students', currentName));
+          if (snap.data().password !== pw) {
+            showToast('비밀번호가 틀렸어요.', 'error'); return;
+          }
+        }
+        sectionPassword.style.display = 'none';
+        await loadWorks(currentName);
+      } catch (e) {
+        console.error(e);
+        showToast('오류가 발생했습니다.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '확인';
+      }
+    });
+
+    document.getElementById('input-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-pw-submit').click();
+    });
+    document.getElementById('input-password-confirm').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-pw-submit').click();
+    });
+
+    // ── 비밀번호 변경 ──
+    document.getElementById('btn-change-pw').addEventListener('click', () => {
+      document.getElementById('pw-change-modal').style.display = 'block';
+      document.getElementById('input-pw-current').value = '';
+      document.getElementById('input-pw-new').value = '';
+      document.getElementById('input-pw-new-confirm').value = '';
+      document.getElementById('pw-change-modal').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    document.getElementById('btn-pw-change-cancel').addEventListener('click', () => {
+      document.getElementById('pw-change-modal').style.display = 'none';
+    });
+
+    document.getElementById('btn-pw-change-submit').addEventListener('click', async () => {
+      const current = document.getElementById('input-pw-current').value;
+      const next = document.getElementById('input-pw-new').value;
+      const nextConfirm = document.getElementById('input-pw-new-confirm').value;
+
+      if (!current || !next) { showToast('모든 항목을 입력해주세요.', 'error'); return; }
+      if (next !== nextConfirm) { showToast('새 비밀번호가 일치하지 않아요.', 'error'); return; }
+
+      const btn = document.getElementById('btn-pw-change-submit');
+      btn.disabled = true;
+
+      try {
+        const snap = await getDoc(doc(db, 'students', currentName));
+        if (snap.data().password !== current) { showToast('현재 비밀번호가 틀렸어요.', 'error'); return; }
+        await updateDoc(doc(db, 'students', currentName), { password: next });
+        document.getElementById('pw-change-modal').style.display = 'none';
+        showToast('비밀번호가 변경되었습니다! ✓', 'success');
+      } catch (e) {
+        console.error(e);
+        showToast('변경 실패. 다시 시도해주세요.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ── 작품 목록 로드 ──
     async function loadWorks(name) {
       sectionHistory.style.display = 'block';
       sectionForm.style.display = 'none';
