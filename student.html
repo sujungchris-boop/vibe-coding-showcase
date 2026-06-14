@@ -222,9 +222,10 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
       getFirestore, collection, query, where,
-      orderBy, onSnapshot
+      orderBy, onSnapshot, doc, getDoc
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
+    import { buildSrcdoc, escapeAttr, escapeHtml, nameToColor } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
@@ -237,10 +238,19 @@
     } else {
       document.title = `${studentName} · 바이브코딩`;
       document.getElementById('profile-name').textContent = studentName;
-      const color = nameToColor(studentName);
       const avatar = document.getElementById('avatar');
-      avatar.style.background = color;
+      avatar.style.background = nameToColor(studentName);
       avatar.textContent = studentName[0];
+
+      // 프로필 사진 조회 (있으면 아바타 대체)
+      getDoc(doc(db, 'students', studentName)).then(s => {
+        if (s.exists() && s.data().photoURL) {
+          avatar.textContent = '';
+          avatar.style.backgroundImage = `url('${s.data().photoURL}')`;
+          avatar.style.backgroundSize = 'cover';
+          avatar.style.backgroundPosition = 'center';
+        }
+      }).catch(() => {});
 
       const q = query(
         collection(db, 'works'),
@@ -291,24 +301,6 @@
       });
     }
 
-    function buildSrcdoc(w) {
-      return `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
-    }
-
-    function escapeAttr(str) {
-      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    function nameToColor(name) {
-      let hash = 0;
-      for (const ch of name) hash = ch.charCodeAt(0) + (hash << 5) - hash;
-      const h = Math.abs(hash) % 360;
-      return `hsl(${h}, 55%, 45%)`;
-    }
   </script>
 
 </body>

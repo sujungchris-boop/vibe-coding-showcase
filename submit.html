@@ -220,6 +220,66 @@
     }
     .btn-update:hover { background: rgba(124,111,247,0.25); }
 
+    .btn-delete-work {
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-delete-work:hover { background: rgba(248,113,113,0.2); }
+
+    /* Profile photo */
+    .profile-block {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .profile-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: white;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .profile-block-info { flex: 1; }
+
+    .profile-block-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .btn-photo {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .btn-photo:hover { border-color: var(--accent); }
+
     .empty-history {
       text-align: center;
       padding: 24px;
@@ -466,6 +526,14 @@
     <!-- Step 3: 작품 목록 -->
     <div class="section" id="section-history" style="display:none">
       <div class="section-title">03 · 내 작품 목록</div>
+      <div class="profile-block">
+        <div class="profile-avatar" id="profile-avatar"></div>
+        <div class="profile-block-info">
+          <div class="profile-block-name" id="profile-block-name"></div>
+          <button class="btn-photo" id="btn-photo">📷 프로필 사진 변경</button>
+          <input type="file" id="photo-input" accept="image/*" style="display:none">
+        </div>
+      </div>
       <div class="history-list" id="history-list">
         <div class="loading">불러오는 중...</div>
       </div>
@@ -558,13 +626,18 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
       getFirestore, collection, query, where,
-      orderBy, getDocs, addDoc, updateDoc,
+      orderBy, getDocs, addDoc, updateDoc, deleteDoc,
       doc, getDoc, setDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import {
+      getStorage, ref, uploadBytes, getDownloadURL
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
     import firebaseConfig from './firebase-config.js';
+    import { escapeHtml, nameToColor, hashPassword, verifyPassword, isHashed, showToast } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const storage = getStorage(app);
 
     let currentName = '';
     let studentDocId = null;
@@ -683,12 +756,21 @@
           if (pw !== pwConfirm) { showToast('비밀번호가 일치하지 않아요.', 'error'); return; }
           const adminCode = document.getElementById('input-admin-code').value;
           if (adminCode !== 'chrisna') { showToast('관리자 코드가 올바르지 않아요.', 'error'); return; }
-          await setDoc(doc(db, 'students', currentName), { name: currentName, password: pw });
+          await setDoc(doc(db, 'students', currentName), {
+            name: currentName,
+            password: await hashPassword(pw),
+            createdAt: serverTimestamp(),
+          });
           showToast('비밀번호가 설정되었습니다!', 'success');
         } else {
           const snap = await getDoc(doc(db, 'students', currentName));
-          if (snap.data().password !== pw) {
+          const stored = snap.data().password;
+          if (!(await verifyPassword(pw, stored))) {
             showToast('비밀번호가 틀렸어요.', 'error'); return;
+          }
+          // 레거시 평문 → 해시로 자동 업그레이드
+          if (!isHashed(stored)) {
+            await updateDoc(doc(db, 'students', currentName), { password: await hashPassword(pw) });
           }
         }
         sectionPassword.style.display = 'none';
@@ -735,8 +817,8 @@
 
       try {
         const snap = await getDoc(doc(db, 'students', currentName));
-        if (snap.data().password !== current) { showToast('현재 비밀번호가 틀렸어요.', 'error'); return; }
-        await updateDoc(doc(db, 'students', currentName), { password: next });
+        if (!(await verifyPassword(current, snap.data().password))) { showToast('현재 비밀번호가 틀렸어요.', 'error'); return; }
+        await updateDoc(doc(db, 'students', currentName), { password: await hashPassword(next) });
         document.getElementById('pw-change-modal').style.display = 'none';
         showToast('비밀번호가 변경되었습니다! ✓', 'success');
       } catch (e) {
@@ -764,11 +846,61 @@
         studentWorks = [];
         snap.forEach(d => studentWorks.push({ id: d.id, ...d.data() }));
         renderHistory();
+        await renderProfile();
       } catch (e) {
         console.error(e);
         historyList.innerHTML = '<div class="loading">불러오기 실패. 다시 시도해주세요.</div>';
       }
     }
+
+    // ── 프로필 사진 ──
+    async function renderProfile() {
+      document.getElementById('profile-block-name').textContent = currentName;
+      const avatar = document.getElementById('profile-avatar');
+      let photoURL = '';
+      try {
+        const sSnap = await getDoc(doc(db, 'students', currentName));
+        if (sSnap.exists()) photoURL = sSnap.data().photoURL || '';
+      } catch (e) { /* 무시 */ }
+      if (photoURL) {
+        avatar.textContent = '';
+        avatar.style.backgroundImage = `url('${photoURL}')`;
+      } else {
+        avatar.style.backgroundImage = '';
+        avatar.style.background = nameToColor(currentName);
+        avatar.textContent = (currentName || '?')[0];
+      }
+    }
+
+    document.getElementById('btn-photo').addEventListener('click', () => {
+      document.getElementById('photo-input').click();
+    });
+
+    document.getElementById('photo-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { showToast('5MB 이하 이미지만 가능해요.', 'error'); return; }
+
+      const btnPhoto = document.getElementById('btn-photo');
+      btnPhoto.disabled = true;
+      btnPhoto.textContent = '업로드 중...';
+      try {
+        const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+        const storageRef = ref(storage, `profiles/${currentName}-${Date.now()}.${ext}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        await updateDoc(doc(db, 'students', currentName), { photoURL: url });
+        await renderProfile();
+        showToast('프로필 사진이 변경되었습니다! ✓', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('업로드 실패. Storage 설정을 확인해주세요.', 'error');
+      } finally {
+        btnPhoto.disabled = false;
+        btnPhoto.textContent = '📷 프로필 사진 변경';
+        e.target.value = '';
+      }
+    });
 
     function renderHistory() {
       if (studentWorks.length === 0) {
@@ -793,9 +925,11 @@
           </div>
           <div class="history-actions">
             <button class="btn-update" data-id="${item.id}">업데이트</button>
+            <button class="btn-delete-work" data-id="${item.id}">삭제</button>
           </div>
         `;
         div.querySelector('.btn-update').addEventListener('click', () => startUpdate(item));
+        div.querySelector('.btn-delete-work').addEventListener('click', () => deleteWork(item));
         historyList.appendChild(div);
       });
     }
@@ -829,6 +963,27 @@
       btnSubmit.textContent = `v${editingVersion}으로 업데이트`;
       sectionForm.style.display = 'block';
       sectionForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // 작품 삭제
+    async function deleteWork(item) {
+      const ok = confirm(`"${item.title || '제목 없음'}" 작품을 삭제하시겠어요?\n이 작업은 되돌릴 수 없습니다.`);
+      if (!ok) return;
+      try {
+        await deleteDoc(doc(db, 'works', item.id));
+        showToast('작품이 삭제되었습니다.', 'success');
+        // 삭제한 작품을 수정 중이었다면 폼 닫기
+        if (editingDocId === item.id) {
+          editingDocId = null;
+          editBanner.style.display = 'none';
+          sectionForm.style.display = 'none';
+          resetForm();
+        }
+        await loadWorks(currentName);
+      } catch (e) {
+        console.error(e);
+        showToast('삭제 실패. 다시 시도해주세요.', 'error');
+      }
     }
 
     btnCancelEdit.addEventListener('click', () => {
@@ -901,16 +1056,6 @@
       }
     });
 
-    function showToast(msg, type = '') {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.className = 'toast show ' + type;
-      setTimeout(() => { toast.className = 'toast'; }, 3000);
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
   </script>
 
 </body>

@@ -245,6 +245,24 @@
       gap: 4px;
     }
 
+    .mini-avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
+    }
+
+    .mini-avatar-initial {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: white;
+    }
+
     .card-name-link {
       color: var(--accent2);
       text-decoration: none;
@@ -343,12 +361,21 @@
       orderBy, onSnapshot
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
+    import { buildSrcdoc, escapeAttr, escapeHtml, nameToColor } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
 
     let allWorks = [];
     let activeStudent = 'all';
+    let photoMap = {}; // studentName -> photoURL
+
+    // 학생 프로필 사진 구독 (없어도 동작)
+    onSnapshot(collection(db, 'students'), snap => {
+      photoMap = {};
+      snap.forEach(d => { const s = d.data(); if (s.photoURL) photoMap[s.name] = s.photoURL; });
+      renderGrid();
+    }, () => {});
 
     const q = query(collection(db, 'works'), orderBy('createdAt', 'desc'));
     onSnapshot(q, snap => {
@@ -419,6 +446,7 @@
           </div>
           <div class="card-body">
             <div class="card-name">
+              ${avatarHtml(w.studentName)}
               <a class="card-name-link" href="student?name=${encodeURIComponent(w.studentName)}" onclick="event.stopPropagation()">${escapeHtml(w.studentName)}</a>
             </div>
             <div class="card-title">${escapeHtml(w.title || '(제목 없음)')}</div>
@@ -429,16 +457,12 @@
       });
     }
 
-    function buildSrcdoc(w) {
-      return `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
-    }
-
-    function escapeAttr(str) {
-      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    function avatarHtml(name) {
+      const url = photoMap[name];
+      if (url) {
+        return `<span class="mini-avatar" style="background-image:url('${escapeAttr(url)}')"></span>`;
+      }
+      return `<span class="mini-avatar mini-avatar-initial" style="background:${nameToColor(name)}">${escapeHtml((name || '?')[0])}</span>`;
     }
   </script>
 

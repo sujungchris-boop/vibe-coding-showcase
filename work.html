@@ -348,6 +348,7 @@
       query, where, orderBy, onSnapshot, addDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
+    import { buildSrcdoc, escapeHtml, escapeAttr, nameToColor, showToast } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
@@ -377,16 +378,26 @@
       }
     }
 
-    function renderWork(w) {
+    async function renderWork(w) {
       document.title = `${w.title || '작품'} · 바이브코딩`;
+
+      // 학생 프로필 사진 조회 (없어도 동작)
+      let photoURL = '';
+      try {
+        const sSnap = await getDoc(doc(db, 'students', w.studentName || ''));
+        if (sSnap.exists()) photoURL = sSnap.data().photoURL || '';
+      } catch (e) { /* 무시 */ }
 
       // Topbar
       const version = w.version || (w.round ? w.round : 'v1');
       const versionLabel = typeof version === 'number' ? `v${version}` : version;
       const color = nameToColor(w.studentName || '');
+      const avatar = photoURL
+        ? `<span class="avatar" style="background-image:url('${escapeAttr(photoURL)}');background-size:cover"></span>`
+        : `<span class="avatar" style="background:${color}">${escapeHtml((w.studentName||'?')[0])}</span>`;
       document.getElementById('topbar-meta').innerHTML = `
         <a class="student-link" href="student?name=${encodeURIComponent(w.studentName)}">
-          <span class="avatar" style="background:${color}">${(w.studentName||'?')[0]}</span>
+          ${avatar}
           ${escapeHtml(w.studentName)}
         </a>
         <span class="version-badge">${escapeHtml(versionLabel)}</span>
@@ -397,8 +408,7 @@
       document.getElementById('work-desc').textContent = w.description || '';
 
       // iframe
-      const srcdoc = `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
-      document.getElementById('work-iframe').srcdoc = srcdoc;
+      document.getElementById('work-iframe').srcdoc = buildSrcdoc(w);
 
       document.getElementById('main-loading').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
@@ -472,23 +482,6 @@
       }
     });
 
-    function nameToColor(name) {
-      let hash = 0;
-      for (const ch of name) hash = ch.charCodeAt(0) + (hash << 5) - hash;
-      const h = Math.abs(hash) % 360;
-      return `hsl(${h}, 55%, 45%)`;
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    function showToast(msg, type = '') {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.className = 'toast show ' + type;
-      setTimeout(() => { toast.className = 'toast'; }, 3000);
-    }
   </script>
 
 </body>

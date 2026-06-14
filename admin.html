@@ -563,6 +563,7 @@
       orderBy, getDocs, deleteDoc, doc, onSnapshot
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
+    import { buildSrcdoc, escapeAttr, escapeHtml, showToast } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
@@ -765,25 +766,6 @@
       }
     });
 
-    // ── Helpers ──
-    function buildSrcdoc(w) {
-      return `<!DOCTYPE html><html><head><style>${w.css||''}</style></head><body>${w.html||''}<script>${w.js||''}<\/script></body></html>`;
-    }
-
-    function escapeAttr(str) {
-      return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    function showToast(msg, type = '') {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.className = 'toast show ' + type;
-      setTimeout(() => { toast.className = 'toast'; }, 3000);
-    }
   </script>
 
 </body>
