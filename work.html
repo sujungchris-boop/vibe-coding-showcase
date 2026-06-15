@@ -94,15 +94,50 @@
     /* Preview */
     .preview-container {
       width: 100%;
-      background: #fff;
       border-bottom: 1px solid var(--border);
     }
 
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-toolbar span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .btn-fullscreen {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-fullscreen:hover { border-color: var(--accent); color: var(--accent); }
+
     #work-iframe {
       width: 100%;
-      height: 60vh;
+      height: 82vh;
       border: none;
       display: block;
+      background: #fff;
+    }
+    /* 전체화면일 때 진짜 뷰포트 전체를 채움 */
+    #work-iframe:fullscreen {
+      width: 100vw;
+      height: 100vh;
     }
 
     /* Info + Comments */
@@ -310,7 +345,11 @@
 
   <div id="main-content" style="display:none">
     <div class="preview-container">
-      <iframe id="work-iframe" sandbox="allow-scripts" title="작품 미리보기"></iframe>
+      <div class="preview-toolbar">
+        <span>미리보기</span>
+        <button class="btn-fullscreen" id="btn-fullscreen">⛶ 전체화면으로 보기</button>
+      </div>
+      <iframe id="work-iframe" sandbox="allow-scripts" allow="fullscreen" title="작품 미리보기"></iframe>
     </div>
 
     <div class="content">
@@ -453,6 +492,14 @@
         list.appendChild(div);
       });
     }
+
+    // 전체화면 보기
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+      const iframe = document.getElementById('work-iframe');
+      if (iframe.requestFullscreen) iframe.requestFullscreen();
+      else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
+      else showToast('이 브라우저는 전체화면을 지원하지 않아요.', 'error');
+    });
 
     // Submit comment
     document.getElementById('btn-comment').addEventListener('click', async () => {
