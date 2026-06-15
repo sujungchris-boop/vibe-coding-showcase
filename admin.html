@@ -738,8 +738,14 @@
           pendingDelete = { type: btn.dataset.type, id: btn.dataset.id, name: btn.dataset.name };
           const labels = { student: '학생 계정', work: '작품', comment: '댓글' };
           document.getElementById('confirm-title').textContent = `${labels[pendingDelete.type]} 삭제`;
-          document.getElementById('confirm-desc').textContent =
-            `"${pendingDelete.name}"을(를) 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다.`;
+          let desc = `"${pendingDelete.name}"을(를) 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다.`;
+          if (pendingDelete.type === 'student') {
+            const workCount = allWorks.filter(w => w.studentName === pendingDelete.name).length;
+            if (workCount > 0) {
+              desc = `"${pendingDelete.name}" 계정과 함께 작품 ${workCount}개 및 해당 작품의 모든 댓글이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`;
+            }
+          }
+          document.getElementById('confirm-desc').textContent = desc;
           document.getElementById('confirm-backdrop').classList.add('open');
         });
       });
@@ -757,9 +763,22 @@
       pendingDelete = null;
 
       try {
-        const colMap = { student: 'students', work: 'works', comment: 'comments' };
-        await deleteDoc(doc(db, colMap[type], id));
-        showToast(`삭제되었습니다.`, 'success');
+        if (type === 'student') {
+          // 학생의 작품 + 해당 작품의 댓글까지 연쇄 삭제
+          const works = allWorks.filter(w => w.studentName === name);
+          const workIds = new Set(works.map(w => w.id));
+          const comments = allComments.filter(c => workIds.has(c.workId));
+          await Promise.all([
+            ...works.map(w => deleteDoc(doc(db, 'works', w.id))),
+            ...comments.map(c => deleteDoc(doc(db, 'comments', c.id))),
+            deleteDoc(doc(db, 'students', id)),
+          ]);
+          showToast(`학생과 작품 ${works.length}개가 삭제되었습니다.`, 'success');
+        } else {
+          const colMap = { work: 'works', comment: 'comments' };
+          await deleteDoc(doc(db, colMap[type], id));
+          showToast(`삭제되었습니다.`, 'success');
+        }
       } catch (e) {
         console.error(e);
         showToast('삭제 실패. 다시 시도해주세요.', 'error');

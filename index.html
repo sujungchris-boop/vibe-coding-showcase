@@ -3,22 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta property="og:title" content="바이브코딩 쇼케이스">
-  <meta property="og:description" content="AI와 함께 만든 학생 결과물 모음">
-  <title>바이브코딩 쇼케이스</title>
+  <meta property="og:title" content="AI로 만드는 KIDS 교구 프로젝트">
+  <meta property="og:description" content="커버넌트 하이스쿨 학생들이 바이브코딩으로 만든 결과물 아카이브">
+  <title>AI로 만드는 KIDS 교구 프로젝트</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #23232f;
-      --border: #2e2e3e;
+      --bg: #07070b;
+      --surface: #121219;
+      --surface2: #1a1a24;
+      --border: #25252f;
       --accent: #7c6ff7;
       --accent2: #5ee8d4;
-      --text: #e8e8f0;
-      --muted: #7a7a9a;
-      --radius: 14px;
+      --text: #f0f0f5;
+      --muted: #7a7a92;
+      --radius: 16px;
+      --display: 'Space Grotesk', -apple-system, sans-serif;
+      --mono: 'Space Mono', monospace;
     }
 
     body {
@@ -26,374 +31,338 @@
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
-    /* ── Header ── */
-    header {
-      padding: 60px 24px 48px;
-      text-align: center;
-      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,111,247,0.15) 0%, transparent 70%);
-      border-bottom: 1px solid var(--border);
-      position: relative;
-    }
-
-    .header-nav {
-      position: absolute;
-      top: 20px;
-      right: 24px;
-    }
-
-    .btn-submit-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--accent);
-      color: white;
-      font-size: 13px;
-      font-weight: 700;
-      padding: 8px 18px;
-      border-radius: 100px;
-      text-decoration: none;
-      transition: opacity 0.15s;
-      letter-spacing: -0.01em;
-    }
-
-    .btn-submit-link:hover { opacity: 0.85; }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(124,111,247,0.15);
-      border: 1px solid rgba(124,111,247,0.3);
-      color: var(--accent);
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 12px;
-      border-radius: 100px;
-      margin-bottom: 20px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    header h1 {
-      font-size: clamp(28px, 5vw, 48px);
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      line-height: 1.2;
-      margin-bottom: 12px;
-    }
-
-    header h1 span {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    header p {
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.7;
-    }
-
-    .stats {
-      display: flex;
-      justify-content: center;
-      gap: 40px;
-      margin-top: 32px;
-    }
-
-    .stat-number {
-      font-size: 24px;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    /* ── Filter ── */
-    .filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 24px 24px 0;
-      max-width: 1100px;
-      margin: 0 auto;
-      flex-wrap: wrap;
-    }
-
-    .filter-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--muted);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin-right: 4px;
-    }
-
-    .filter-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      padding: 5px 14px;
-      border-radius: 100px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .filter-btn.active,
-    .filter-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(124,111,247,0.1);
-    }
-
-    /* ── Grid ── */
-    .grid-section {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 24px 80px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-
-    @media (max-width: 768px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
-
-    /* ── Card ── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      cursor: pointer;
-      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-      text-decoration: none;
-      color: inherit;
-      display: block;
-    }
-
-    .card:hover {
-      transform: translateY(-4px);
-      border-color: var(--accent);
-      box-shadow: 0 12px 40px rgba(124,111,247,0.2);
-    }
-
-    .card-preview {
-      position: relative;
-      width: 100%;
-      height: 180px;
-      background: var(--surface2);
-      overflow: hidden;
-    }
-
-    .card-preview iframe {
-      width: 200%;
-      height: 200%;
-      transform: scale(0.5);
-      transform-origin: top left;
-      pointer-events: none;
-      border: none;
-    }
-
-    .card-overlay {
-      position: absolute;
+    /* Moving gradient backdrop + grain */
+    .backdrop {
+      position: fixed;
       inset: 0;
-      background: linear-gradient(to bottom, transparent 50%, rgba(26,26,36,0.85) 100%);
+      z-index: -2;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 0%, rgba(124,111,247,0.18), transparent 60%),
+        radial-gradient(ellipse 50% 50% at 85% 10%, rgba(94,232,212,0.12), transparent 55%),
+        radial-gradient(ellipse 70% 60% at 50% 100%, rgba(124,111,247,0.10), transparent 60%);
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+    @keyframes drift {
+      0%   { transform: translate3d(0,0,0) scale(1); }
+      100% { transform: translate3d(0,-3%,0) scale(1.08); }
+    }
+    .grain {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
+    /* Top nav */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 22px 32px; position: relative; z-index: 5;
+    }
+    .nav-brand {
+      font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+      color: var(--muted); text-transform: uppercase;
+    }
+    .nav-brand b { color: var(--text); font-weight: 700; }
+    .btn-submit-link {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--text); color: var(--bg);
+      font-size: 13px; font-weight: 700; padding: 9px 18px;
+      border-radius: 100px; text-decoration: none;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .btn-submit-link:hover { transform: translateY(-2px); background: var(--accent2); }
+
+    /* Hero */
+    .hero {
+      padding: 70px 32px 40px; max-width: 1280px; margin: 0 auto;
+      position: relative; z-index: 2;
+    }
+    .hero-eyebrow {
+      font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em;
+      color: var(--accent2); text-transform: uppercase; margin-bottom: 26px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .hero-eyebrow::before {
+      content: ''; width: 36px; height: 1px; background: var(--accent2);
+    }
+    .hero h1 {
+      font-family: var(--display);
+      font-size: clamp(44px, 9vw, 128px);
+      font-weight: 700; line-height: 0.92; letter-spacing: -0.03em;
+      margin-bottom: 30px;
+    }
+    .hero h1 .line { display: block; overflow: hidden; }
+    .hero h1 .line span { display: inline-block; animation: rise 0.9s cubic-bezier(.16,1,.3,1) both; }
+    .hero h1 .line:nth-child(2) span { animation-delay: 0.12s; }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(100deg, var(--accent) 20%, var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    @keyframes rise { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .hero-bottom {
+      display: flex; flex-wrap: wrap; align-items: flex-end;
+      justify-content: space-between; gap: 30px; margin-top: 10px;
+    }
+    .hero-desc {
+      max-width: 460px; color: var(--muted); font-size: 15px; line-height: 1.7;
+      animation: fade 1s ease 0.3s both;
+    }
+    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+    .hero-stats { display: flex; gap: 40px; animation: fade 1s ease 0.5s both; }
+    .stat-number {
+      font-family: var(--display); font-size: 42px; font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1;
+    }
+    .stat-label {
+      font-family: var(--mono); font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-top: 8px;
+    }
+
+    /* Marquee */
+    .marquee {
+      margin: 50px 0 10px; padding: 16px 0; overflow: hidden; white-space: nowrap;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      position: relative; z-index: 2;
+    }
+    .marquee-track {
+      display: inline-flex; gap: 40px; animation: scroll 28s linear infinite;
+    }
+    .marquee:hover .marquee-track { animation-play-state: paused; }
+    @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .marquee-item {
+      font-family: var(--display); font-size: 16px; font-weight: 500;
+      color: var(--muted); display: inline-flex; align-items: center; gap: 40px;
+    }
+    .marquee-item::after { content: '✦'; color: var(--accent); font-size: 11px; }
+
+    /* Filter */
+    .filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      max-width: 1280px; margin: 40px auto 0; padding: 0 32px;
+      position: relative; z-index: 2;
+    }
+    .filter-label {
+      font-family: var(--mono); font-size: 11px; color: var(--muted);
+      letter-spacing: 0.12em; text-transform: uppercase; margin-right: 6px;
+    }
+    .filter-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      font-size: 13px; font-weight: 600; padding: 6px 16px; border-radius: 100px;
+      cursor: pointer; transition: all 0.18s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      border-color: var(--accent2); color: var(--bg); background: var(--accent2);
+    }
+
+    /* Bento grid */
+    .grid-section { max-width: 1280px; margin: 28px auto 0; padding: 0 32px 100px; }
+    .grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 220px; gap: 16px; grid-auto-flow: dense;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; grid-auto-rows: 240px; } }
+
+    .card {
+      position: relative; overflow: hidden; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--surface);
+      text-decoration: none; color: inherit; cursor: pointer;
+      opacity: 0; transform: translateY(28px);
+      transition: transform 0.4s cubic-bezier(.16,1,.3,1), border-color 0.3s, box-shadow 0.3s;
+    }
+    .card.in { opacity: 1; transform: translateY(0); }
+    .card:hover {
+      border-color: var(--accent); box-shadow: 0 20px 60px rgba(124,111,247,0.25);
+      transform: translateY(-4px);
+    }
+    .card.span-big  { grid-column: span 2; grid-row: span 2; }
+    .card.span-wide { grid-column: span 2; }
+    .card.span-tall { grid-row: span 2; }
+    @media (max-width: 560px) {
+      .card.span-big, .card.span-wide, .card.span-tall { grid-column: auto; grid-row: auto; }
+    }
+
+    .card-preview { position: absolute; inset: 0; background: var(--surface2); overflow: hidden; }
+    .card-preview iframe {
+      width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left;
+      pointer-events: none; border: none;
+    }
+    .card-veil {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(7,7,11,0.95) 0%, rgba(7,7,11,0.75) 22%, rgba(7,7,11,0.1) 50%, transparent 70%);
+      transition: opacity 0.4s ease;
+    }
+    .card:hover .card-veil { opacity: 0.25; }
+
+    .card-index {
+      position: absolute; top: 14px; left: 16px; z-index: 2;
+      font-family: var(--mono); font-size: 11px; color: var(--text);
+      letter-spacing: 0.1em; opacity: 0.7;
+    }
     .card-version {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(94,232,212,0.15);
-      border: 1px solid rgba(94,232,212,0.3);
-      color: var(--accent2);
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 100px;
-      letter-spacing: 0.04em;
+      position: absolute; top: 12px; right: 12px; z-index: 2;
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      color: var(--accent2); border: 1px solid rgba(94,232,212,0.4);
+      padding: 3px 9px; border-radius: 100px; background: rgba(7,7,11,0.5);
     }
-
     .card-body {
-      padding: 14px 16px 16px;
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+      padding: 18px 18px 16px;
     }
-
     .card-name {
-      font-size: 11px;
-      color: var(--accent2);
-      font-weight: 600;
-      margin-bottom: 4px;
-      letter-spacing: 0.04em;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .mini-avatar {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background-size: cover;
-      background-position: center;
-      flex-shrink: 0;
-    }
-
-    .mini-avatar-initial {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: white;
-    }
-
-    .card-name-link {
-      color: var(--accent2);
+      font-family: var(--mono); font-size: 11px; color: var(--accent2);
+      letter-spacing: 0.06em; margin-bottom: 6px; display: inline-block;
       text-decoration: none;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
     }
-
-    .card-name-link:hover {
-      text-decoration: underline;
-    }
-
+    .card-name:hover { text-decoration: underline; }
     .card-title {
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 4px;
-      line-height: 1.3;
+      font-family: var(--display); font-size: 19px; font-weight: 600;
+      line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 4px;
     }
-
+    .card.span-big .card-title { font-size: 26px; }
     .card-desc {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.5;
+      font-size: 12.5px; color: var(--muted); line-height: 1.5;
+      max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.4s ease;
     }
+    .card:hover .card-desc { max-height: 60px; opacity: 1; margin-top: 6px; }
+    .card-go {
+      position: absolute; bottom: 18px; right: 18px; z-index: 2;
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid var(--border); background: rgba(7,7,11,0.5);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text); font-size: 15px;
+      opacity: 0; transform: translateX(-6px) rotate(-30deg);
+      transition: all 0.3s cubic-bezier(.16,1,.3,1);
+    }
+    .card:hover .card-go { opacity: 1; transform: translateX(0) rotate(0); }
 
-    /* Empty / Loading */
     .state-msg {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--muted);
-      font-size: 14px;
+      grid-column: 1 / -1; text-align: center; padding: 80px 20px;
+      color: var(--muted); font-size: 14px;
     }
+    .state-msg .icon { font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.4; }
 
-    .state-msg .icon { font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.5; }
-
-    /* Footer */
     footer {
-      text-align: center;
-      padding: 32px;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 13px;
+      text-align: center; padding: 40px 32px; border-top: 1px solid var(--border);
+      color: var(--muted); font-family: var(--mono); font-size: 11px;
+      letter-spacing: 0.08em; text-transform: uppercase;
     }
 
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 7px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   </style>
 </head>
 <body>
+  <div class="backdrop"></div>
+  <div class="grain"></div>
 
-  <header>
-    <nav class="header-nav">
-      <a href="submit.html" class="btn-submit-link">✦ 결과물 제출</a>
-    </nav>
-    <div class="badge">✦ 커버넌트 하이스쿨 바이브코딩 아카이브</div>
-    <h1>AI로 만드는<br><span>KIDS 교구 프로젝트</span></h1>
-    <p>커버넌트 하이스쿨 학생들이 인공지능 활용 수업을 통해 직접 만든 결과물 아카이브입니다.<br>어린이 주일학교(KIDS)를 위한 게이미피케이션 교구를 바이브코딩으로 제작합니다.</p>
-    <div class="stats">
-      <div>
-        <div class="stat-number" id="stat-works">-</div>
-        <div class="stat-label">결과물</div>
-      </div>
-      <div>
-        <div class="stat-number" id="stat-students">-</div>
-        <div class="stat-label">학생</div>
+  <nav class="nav">
+    <div class="nav-brand"><b>COVENANT</b> HIGH SCHOOL · VIBE CODING ARCHIVE</div>
+    <a href="submit" class="btn-submit-link">✦ 결과물 제출</a>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-eyebrow">2026 · KIDS Gamification Lab</div>
+    <h1>
+      <span class="line"><span>AI로 만드는</span></span>
+      <span class="line"><span><em>KIDS 교구</em> 프로젝트</span></span>
+    </h1>
+    <div class="hero-bottom">
+      <p class="hero-desc">
+        커버넌트 하이스쿨 학생들이 인공지능 활용 수업에서 배운 것을 바탕으로,
+        어린이 주일학교(KIDS)를 위한 게이미피케이션 교구를 바이브코딩으로 직접 제작합니다.
+        아래의 모든 작품은 <b style="color:var(--text)">실제로 작동하는 라이브 결과물</b>입니다.
+      </p>
+      <div class="hero-stats">
+        <div>
+          <div class="stat-number" id="stat-works">0</div>
+          <div class="stat-label">Projects</div>
+        </div>
+        <div>
+          <div class="stat-number" id="stat-students">0</div>
+          <div class="stat-label">Makers</div>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Student filter -->
+  <div class="marquee">
+    <div class="marquee-track" id="marquee-track"></div>
+  </div>
+
   <div class="filter-bar" id="filter-bar">
-    <span class="filter-label">학생</span>
+    <span class="filter-label">Filter</span>
     <button class="filter-btn active" data-student="all">전체</button>
   </div>
 
-  <!-- Grid -->
   <section class="grid-section">
     <div class="grid" id="grid">
-      <div class="state-msg">
-        <span class="icon">⬡</span>
-        데이터를 불러오는 중...
-      </div>
+      <div class="state-msg"><span class="icon">⬡</span>데이터를 불러오는 중...</div>
     </div>
   </section>
 
-  <footer>
-    바이브코딩 수업 결과물 아카이브 · 모든 코드는 AI와의 협업으로 생성되었습니다.
-  </footer>
+  <footer>모든 코드는 AI와의 협업으로 생성되었습니다 · Made with Vibe Coding</footer>
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, query,
-      orderBy, onSnapshot
+      getFirestore, collection, query, orderBy, onSnapshot
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
-    import { buildSrcdoc, escapeAttr, escapeHtml, nameToColor } from './utils.js';
+    import { buildSrcdoc, escapeAttr, escapeHtml } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
 
     let allWorks = [];
     let activeStudent = 'all';
-    let photoMap = {}; // studentName -> photoURL
 
-    // 학생 프로필 사진 구독 (없어도 동작)
-    onSnapshot(collection(db, 'students'), snap => {
-      photoMap = {};
-      snap.forEach(d => { const s = d.data(); if (s.photoURL) photoMap[s.name] = s.photoURL; });
-      renderGrid();
-    }, () => {});
+    const SPAN_PATTERN = ['span-big', '', 'span-tall', '', 'span-wide', '', '', 'span-tall'];
 
     const q = query(collection(db, 'works'), orderBy('createdAt', 'desc'));
     onSnapshot(q, snap => {
       allWorks = [];
       snap.forEach(d => allWorks.push({ id: d.id, ...d.data() }));
       updateStats();
+      updateMarquee();
       updateFilters();
       renderGrid();
     }, err => {
       console.error(err);
       document.getElementById('grid').innerHTML =
-        '<div class="state-msg"><span class="icon">⚠️</span>데이터를 불러올 수 없습니다.<br>Firebase 설정을 확인해주세요.</div>';
+        '<div class="state-msg"><span class="icon">⚠</span>데이터를 불러올 수 없습니다.</div>';
     });
 
     function updateStats() {
-      document.getElementById('stat-works').textContent = allWorks.length;
+      animateCount('stat-works', allWorks.length);
       const names = new Set(allWorks.map(w => w.studentName));
-      document.getElementById('stat-students').textContent = names.size;
+      animateCount('stat-students', names.size);
+    }
+
+    function animateCount(id, target) {
+      const el = document.getElementById(id);
+      const start = parseInt(el.textContent) || 0;
+      if (start === target) return;
+      const dur = 700, t0 = performance.now();
+      const step = (t) => {
+        const p = Math.min((t - t0) / dur, 1);
+        el.textContent = Math.round(start + (target - start) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+
+    function updateMarquee() {
+      const names = [...new Set(allWorks.map(w => w.studentName).filter(Boolean))];
+      if (names.length === 0) return;
+      const items = [...names, ...names, ...names, ...names];
+      document.getElementById('marquee-track').innerHTML =
+        items.map(n => `<span class="marquee-item">${escapeHtml(n)}</span>`).join('');
     }
 
     function updateFilters() {
@@ -432,37 +401,47 @@
       }
 
       grid.innerHTML = '';
-      works.forEach(w => {
+      works.forEach((w, i) => {
         const card = document.createElement('a');
-        card.className = 'card';
+        const span = SPAN_PATTERN[i % SPAN_PATTERN.length];
+        card.className = 'card' + (span ? ' ' + span : '');
         card.href = `work?id=${w.id}`;
-        const srcdoc = buildSrcdoc(w);
         const versionLabel = w.version ? `v${w.version}` : (w.round || '');
+        const idx = String(i + 1).padStart(2, '0');
         card.innerHTML = `
           <div class="card-preview">
-            <iframe srcdoc="${escapeAttr(srcdoc)}" sandbox="allow-scripts" loading="lazy"></iframe>
-            <div class="card-overlay"></div>
-            ${versionLabel ? `<span class="card-version">${escapeHtml(versionLabel)}</span>` : ''}
+            <iframe srcdoc="${escapeAttr(buildSrcdoc(w))}" sandbox="allow-scripts" loading="lazy"></iframe>
           </div>
+          <div class="card-veil"></div>
+          <span class="card-index">${idx}</span>
+          ${versionLabel ? `<span class="card-version">${escapeHtml(versionLabel)}</span>` : ''}
           <div class="card-body">
-            <div class="card-name">
-              ${avatarHtml(w.studentName)}
-              <a class="card-name-link" href="student?name=${encodeURIComponent(w.studentName)}" onclick="event.stopPropagation()">${escapeHtml(w.studentName)}</a>
-            </div>
+            <a class="card-name" href="student?name=${encodeURIComponent(w.studentName)}" onclick="event.stopPropagation()">↳ ${escapeHtml(w.studentName)}</a>
             <div class="card-title">${escapeHtml(w.title || '(제목 없음)')}</div>
             <div class="card-desc">${escapeHtml(w.description || '')}</div>
           </div>
+          <span class="card-go">→</span>
         `;
         grid.appendChild(card);
       });
+      revealCards();
     }
 
-    function avatarHtml(name) {
-      const url = photoMap[name];
-      if (url) {
-        return `<span class="mini-avatar" style="background-image:url('${escapeAttr(url)}')"></span>`;
-      }
-      return `<span class="mini-avatar mini-avatar-initial" style="background:${nameToColor(name)}">${escapeHtml((name || '?')[0])}</span>`;
+    // Scroll-reveal
+    let observer;
+    function revealCards() {
+      if (observer) observer.disconnect();
+      observer = new IntersectionObserver((entries) => {
+        entries.forEach((e, i) => {
+          if (e.isIntersecting) {
+            const cards = [...document.querySelectorAll('.card:not(.in)')];
+            const idx = cards.indexOf(e.target);
+            setTimeout(() => e.target.classList.add('in'), Math.max(0, idx) * 70);
+            observer.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('.card').forEach(c => observer.observe(c));
     }
   </script>
 
