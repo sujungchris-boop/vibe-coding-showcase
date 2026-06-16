@@ -119,6 +119,7 @@
     label span.required { color: var(--accent); margin-left: 2px; }
 
     input[type="text"],
+    input[type="password"],
     textarea,
     select {
       width: 100%;
@@ -134,6 +135,7 @@
     }
 
     input[type="text"]:focus,
+    input[type="password"]:focus,
     textarea:focus,
     select:focus { border-color: var(--accent); }
 
@@ -205,6 +207,54 @@
     }
 
     .history-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* Auth tabs */
+    .auth-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .auth-tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s;
+    }
+    .auth-tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .auth-panel { display: none; }
+    .auth-panel.active { display: block; }
+
+    .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-logout {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-logout:hover { color: var(--danger); border-color: var(--danger); }
 
     .btn-update {
       background: rgba(124,111,247,0.15);
@@ -489,43 +539,58 @@
 
     <div class="page-header">
       <div class="badge">✦ Vibe Coding</div>
-      <h1>결과물 제출</h1>
-      <p>클로드가 만들어준 코드를 붙여넣고 제출하세요.<br>새 작품을 추가하거나 기존 작품을 업데이트할 수 있어요.</p>
+      <h1>로그인</h1>
+      <p>로그인하면 내 작품을 올리거나 수정할 수 있어요.<br>처음이라면 회원가입부터 해주세요.</p>
     </div>
 
-    <!-- Step 1: 이름 입력 -->
-    <div class="section" id="section-name">
-      <div class="section-title">01 · 학생 확인</div>
-      <div class="field">
-        <label>이름 <span class="required">*</span></label>
-        <div class="name-row">
-          <input type="text" id="input-name" placeholder="홍길동" maxlength="20">
-          <button class="btn-lookup" id="btn-lookup">확인</button>
+    <!-- 인증: 로그인 / 회원가입 탭 -->
+    <div class="section" id="section-auth">
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" data-auth="login">로그인</button>
+        <button class="auth-tab-btn" data-auth="signup">회원가입</button>
+      </div>
+
+      <!-- 로그인 패널 -->
+      <div class="auth-panel active" id="auth-login">
+        <div class="field">
+          <label>이름 <span class="required">*</span></label>
+          <input type="text" id="login-name" placeholder="홍길동" maxlength="20">
         </div>
+        <div class="field">
+          <label>비밀번호 <span class="required">*</span></label>
+          <input type="password" id="login-password" placeholder="비밀번호를 입력하세요" maxlength="30">
+        </div>
+        <button class="btn-submit" id="btn-login" style="margin-top:0">로그인</button>
       </div>
-    </div>
 
-    <!-- Step 2: 비밀번호 -->
-    <div class="section" id="section-password" style="display:none">
-      <div class="section-title" id="pw-section-title">02 · 비밀번호</div>
-      <div class="field">
-        <label id="pw-label">비밀번호 <span class="required">*</span></label>
-        <input type="password" id="input-password" placeholder="비밀번호를 입력하세요" maxlength="30">
+      <!-- 회원가입 패널 -->
+      <div class="auth-panel" id="auth-signup">
+        <div class="field">
+          <label>이름 <span class="required">*</span></label>
+          <input type="text" id="signup-name" placeholder="홍길동" maxlength="20">
+        </div>
+        <div class="field">
+          <label>비밀번호 <span class="required">*</span></label>
+          <input type="password" id="signup-password" placeholder="사용할 비밀번호" maxlength="30">
+        </div>
+        <div class="field">
+          <label>비밀번호 확인 <span class="required">*</span></label>
+          <input type="password" id="signup-password-confirm" placeholder="비밀번호를 다시 입력하세요" maxlength="30">
+        </div>
+        <div class="field">
+          <label>관리자 코드 <span class="required">*</span></label>
+          <input type="password" id="signup-admin-code" placeholder="선생님께 받은 코드" maxlength="30">
+        </div>
+        <button class="btn-submit" id="btn-signup" style="margin-top:0">회원가입</button>
       </div>
-      <div class="field" id="pw-confirm-field" style="display:none">
-        <label>비밀번호 확인 <span class="required">*</span></label>
-        <input type="password" id="input-password-confirm" placeholder="비밀번호를 다시 입력하세요" maxlength="30">
-      </div>
-      <div class="field" id="admin-code-field" style="display:none">
-        <label>관리자 코드 <span class="required">*</span></label>
-        <input type="password" id="input-admin-code" placeholder="관리자 코드를 입력하세요" maxlength="30">
-      </div>
-      <button class="btn-submit" id="btn-pw-submit" style="margin-top:0">확인</button>
     </div>
 
     <!-- Step 3: 작품 목록 -->
     <div class="section" id="section-history" style="display:none">
-      <div class="section-title">03 · 내 작품 목록</div>
+      <div class="section-header-row">
+        <div class="section-title" style="flex:1">내 작품 목록</div>
+        <button class="btn-logout" id="btn-logout">로그아웃</button>
+      </div>
       <div class="profile-block">
         <div class="profile-avatar" id="profile-avatar"></div>
         <div class="profile-block-info">
@@ -640,16 +705,12 @@
     const storage = getStorage(app);
 
     let currentName = '';
-    let studentDocId = null;
-    let isNewStudent = false;
     let editingDocId = null;
     let editingVersion = 1;
     let isNewWork = false;
     let studentWorks = [];
 
-    const inputName       = document.getElementById('input-name');
-    const btnLookup       = document.getElementById('btn-lookup');
-    const sectionPassword = document.getElementById('section-password');
+    const sectionAuth     = document.getElementById('section-auth');
     const sectionHistory  = document.getElementById('section-history');
     const historyList     = document.getElementById('history-list');
     const sectionForm     = document.getElementById('section-form');
@@ -692,103 +753,112 @@
       return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
     }
 
-    // ── Step 1: 이름 확인 ──
-    btnLookup.addEventListener('click', async () => {
-      const name = inputName.value.trim();
-      if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
-      currentName = name;
-      btnLookup.disabled = true;
-      btnLookup.textContent = '확인 중...';
+    // ── 로그인 / 회원가입 탭 ──
+    document.querySelectorAll('.auth-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('auth-' + btn.dataset.auth).classList.add('active');
+      });
+    });
 
+    // ── 로그인 ──
+    const btnLogin = document.getElementById('btn-login');
+    btnLogin.addEventListener('click', async () => {
+      const name = document.getElementById('login-name').value.trim();
+      const pw = document.getElementById('login-password').value;
+      if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
+      if (!pw) { showToast('비밀번호를 입력해주세요.', 'error'); return; }
+
+      btnLogin.disabled = true;
+      btnLogin.textContent = '로그인 중...';
       try {
         const snap = await getDoc(doc(db, 'students', name));
-        if (snap.exists()) {
-          // 기존 학생 → 비밀번호 입력
-          isNewStudent = false;
-          studentDocId = name;
-          showPasswordForm(false);
-        } else {
-          // 신규 학생 → 비밀번호 설정
-          isNewStudent = true;
-          studentDocId = name;
-          showPasswordForm(true);
+        if (!snap.exists()) {
+          showToast('가입되지 않은 이름이에요. 회원가입을 해주세요.', 'error'); return;
         }
+        const stored = snap.data().password;
+        if (!(await verifyPassword(pw, stored))) {
+          showToast('비밀번호가 틀렸어요.', 'error'); return;
+        }
+        // 레거시 평문 → 해시로 자동 업그레이드
+        if (!isHashed(stored)) {
+          await updateDoc(doc(db, 'students', name), { password: await hashPassword(pw) });
+        }
+        currentName = name;
+        enterWorkspace();
       } catch (e) {
         console.error(e);
         showToast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
       } finally {
-        btnLookup.disabled = false;
-        btnLookup.textContent = '확인';
+        btnLogin.disabled = false;
+        btnLogin.textContent = '로그인';
       }
     });
 
-    inputName.addEventListener('keydown', e => {
-      if (e.key === 'Enter') btnLookup.click();
-    });
+    // ── 회원가입 ──
+    const btnSignup = document.getElementById('btn-signup');
+    btnSignup.addEventListener('click', async () => {
+      const name = document.getElementById('signup-name').value.trim();
+      const pw = document.getElementById('signup-password').value;
+      const pwConfirm = document.getElementById('signup-password-confirm').value;
+      const adminCode = document.getElementById('signup-admin-code').value;
 
-    function showPasswordForm(isNew) {
-      sectionPassword.style.display = 'block';
-      document.getElementById('pw-section-title').textContent = isNew ? '02 · 비밀번호 설정' : '02 · 비밀번호 입력';
-      document.getElementById('pw-label').innerHTML = isNew
-        ? '새 비밀번호 설정 <span class="required">*</span>'
-        : '비밀번호 <span class="required">*</span>';
-      document.getElementById('pw-confirm-field').style.display = isNew ? 'block' : 'none';
-      document.getElementById('admin-code-field').style.display = isNew ? 'block' : 'none';
-      document.getElementById('input-admin-code').value = '';
-      document.getElementById('input-password').value = '';
-      document.getElementById('input-password-confirm').value = '';
-      document.getElementById('input-password').focus();
-      sectionPassword.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    // ── Step 2: 비밀번호 확인/설정 ──
-    document.getElementById('btn-pw-submit').addEventListener('click', async () => {
-      const pw = document.getElementById('input-password').value;
+      if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
       if (!pw) { showToast('비밀번호를 입력해주세요.', 'error'); return; }
+      if (pw !== pwConfirm) { showToast('비밀번호가 일치하지 않아요.', 'error'); return; }
+      if (adminCode !== 'chrisna') { showToast('관리자 코드가 올바르지 않아요.', 'error'); return; }
 
-      const btn = document.getElementById('btn-pw-submit');
-      btn.disabled = true;
-      btn.textContent = '확인 중...';
-
+      btnSignup.disabled = true;
+      btnSignup.textContent = '가입 중...';
       try {
-        if (isNewStudent) {
-          const pwConfirm = document.getElementById('input-password-confirm').value;
-          if (pw !== pwConfirm) { showToast('비밀번호가 일치하지 않아요.', 'error'); return; }
-          const adminCode = document.getElementById('input-admin-code').value;
-          if (adminCode !== 'chrisna') { showToast('관리자 코드가 올바르지 않아요.', 'error'); return; }
-          await setDoc(doc(db, 'students', currentName), {
-            name: currentName,
-            password: await hashPassword(pw),
-            createdAt: serverTimestamp(),
-          });
-          showToast('비밀번호가 설정되었습니다!', 'success');
-        } else {
-          const snap = await getDoc(doc(db, 'students', currentName));
-          const stored = snap.data().password;
-          if (!(await verifyPassword(pw, stored))) {
-            showToast('비밀번호가 틀렸어요.', 'error'); return;
-          }
-          // 레거시 평문 → 해시로 자동 업그레이드
-          if (!isHashed(stored)) {
-            await updateDoc(doc(db, 'students', currentName), { password: await hashPassword(pw) });
-          }
+        const snap = await getDoc(doc(db, 'students', name));
+        if (snap.exists()) {
+          showToast('이미 가입된 이름이에요. 로그인을 해주세요.', 'error'); return;
         }
-        sectionPassword.style.display = 'none';
-        await loadWorks(currentName);
+        await setDoc(doc(db, 'students', name), {
+          name,
+          password: await hashPassword(pw),
+          createdAt: serverTimestamp(),
+        });
+        currentName = name;
+        showToast('회원가입 완료! 환영합니다 🎉', 'success');
+        enterWorkspace();
       } catch (e) {
         console.error(e);
-        showToast('오류가 발생했습니다.', 'error');
+        showToast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
       } finally {
-        btn.disabled = false;
-        btn.textContent = '확인';
+        btnSignup.disabled = false;
+        btnSignup.textContent = '회원가입';
       }
     });
 
-    document.getElementById('input-password').addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('btn-pw-submit').click();
-    });
-    document.getElementById('input-password-confirm').addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('btn-pw-submit').click();
+    // 엔터키 제출
+    ['login-name','login-password'].forEach(id =>
+      document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') btnLogin.click(); }));
+    ['signup-name','signup-password','signup-password-confirm','signup-admin-code'].forEach(id =>
+      document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') btnSignup.click(); }));
+
+    // 로그인 성공 → 작업 공간 진입
+    async function enterWorkspace() {
+      sectionAuth.style.display = 'none';
+      await loadWorks(currentName);
+    }
+
+    // 로그아웃
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      currentName = '';
+      editingDocId = null;
+      studentWorks = [];
+      sectionHistory.style.display = 'none';
+      sectionForm.style.display = 'none';
+      editBanner.style.display = 'none';
+      document.getElementById('pw-change-modal').style.display = 'none';
+      ['login-name','login-password','signup-name','signup-password','signup-password-confirm','signup-admin-code']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      sectionAuth.style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     // ── 비밀번호 변경 ──
