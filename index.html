@@ -72,6 +72,15 @@
       transition: transform 0.2s, background 0.2s;
     }
     .btn-submit-link:hover { transform: translateY(-2px); background: var(--accent2); }
+    .nav-actions { display: flex; align-items: center; gap: 10px; }
+    .btn-studio-link {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(124,111,247,0.15); border: 1px solid rgba(124,111,247,0.4);
+      color: var(--accent); font-size: 13px; font-weight: 700; padding: 8px 16px;
+      border-radius: 100px; text-decoration: none;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .btn-studio-link:hover { transform: translateY(-2px); background: rgba(124,111,247,0.28); }
 
     /* Hero */
     .hero {
@@ -263,7 +272,10 @@
 
   <nav class="nav">
     <div class="nav-brand"><b>COVENANT</b> HIGH SCHOOL · VIBE CODING ARCHIVE</div>
-    <a href="submit" class="btn-submit-link">✦ 로그인 / 제출</a>
+    <div class="nav-actions">
+      <a href="studio" class="btn-studio-link">✨ AI 스튜디오</a>
+      <a href="submit" class="btn-submit-link">✦ 로그인 / 제출</a>
+    </div>
   </nav>
 
   <header class="hero">

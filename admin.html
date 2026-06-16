@@ -169,7 +169,7 @@
     /* Stats */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 16px;
       margin-bottom: 32px;
     }
@@ -470,6 +470,14 @@
           <div class="stat-card-num" id="s-versions">-</div>
           <div class="stat-card-label">총 업데이트</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-card-num" id="s-ai-calls">-</div>
+          <div class="stat-card-label">AI 호출</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-num" id="s-ai-tokens">-</div>
+          <div class="stat-card-label">AI 토큰 (총)</div>
+        </div>
       </div>
 
       <!-- Tabs -->
@@ -477,6 +485,31 @@
         <button class="tab-btn active" data-tab="students">학생 관리</button>
         <button class="tab-btn" data-tab="works">작품 관리</button>
         <button class="tab-btn" data-tab="comments">댓글 관리</button>
+        <button class="tab-btn" data-tab="usage">AI 사용량</button>
+      </div>
+
+      <!-- Usage tab -->
+      <div class="tab-panel" id="tab-usage">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>모델</th>
+                <th>호출 수</th>
+                <th>입력 토큰</th>
+                <th>출력 토큰</th>
+                <th>총 토큰</th>
+                <th>추정 비용 (USD)</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-usage">
+              <tr class="loading-row"><td colspan="6">불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6">
+          ※ 추정 비용은 admin.html의 <code>TOKEN_RATES</code> 요율표 기준입니다. 실제 청구액은 각 제공사 콘솔에서 확인하세요.
+        </p>
       </div>
 
       <!-- Students tab -->
@@ -607,7 +640,19 @@
     });
 
     // ── Load all data ──
-    let allStudents = [], allWorks = [], allComments = [];
+    let allStudents = [], allWorks = [], allComments = [], allUsage = [];
+
+    // 추정 비용 요율 (USD per 1M tokens). 모델명 일부만 매칭해도 적용. 요율 변경 시 여기 수정.
+    const TOKEN_RATES = {
+      'gemini-2.5-flash': { in: 0.30, out: 2.50 },
+      'gemini':           { in: 0.30, out: 2.50 },
+      'claude-haiku':     { in: 1.00, out: 5.00 },
+      'claude':           { in: 3.00, out: 15.00 },
+    };
+    function rateFor(model) {
+      const key = Object.keys(TOKEN_RATES).find(k => (model || '').includes(k));
+      return key ? TOKEN_RATES[key] : null;
+    }
 
     function loadAll() {
       // Students
@@ -633,6 +678,18 @@
         renderComments();
         updateStats();
       });
+
+      // AI 사용량
+      onSnapshot(collection(db, 'usage'), snap => {
+        allUsage = [];
+        snap.forEach(d => allUsage.push({ id: d.id, ...d.data() }));
+        renderUsage();
+        updateStats();
+      }, err => {
+        console.error(err);
+        document.getElementById('tbody-usage').innerHTML =
+          '<tr class="loading-row"><td colspan="6">사용량을 불러올 수 없습니다.</td></tr>';
+      });
     }
 
     function updateStats() {
@@ -641,6 +698,53 @@
       document.getElementById('s-comments').textContent = allComments.length;
       const totalUpdates = allWorks.reduce((acc, w) => acc + ((w.version || 1) - 1), 0);
       document.getElementById('s-versions').textContent = totalUpdates;
+      document.getElementById('s-ai-calls').textContent = allUsage.length;
+      const totalTokens = allUsage.reduce((a, u) => a + (u.totalTokens || 0), 0);
+      document.getElementById('s-ai-tokens').textContent = totalTokens.toLocaleString();
+    }
+
+    function renderUsage() {
+      const tbody = document.getElementById('tbody-usage');
+      if (allUsage.length === 0) {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="6">아직 AI 호출 기록이 없어요.</td></tr>';
+        return;
+      }
+      // 모델별 집계
+      const byModel = {};
+      allUsage.forEach(u => {
+        const m = u.model || '(미상)';
+        if (!byModel[m]) byModel[m] = { calls: 0, in: 0, out: 0, total: 0 };
+        byModel[m].calls++;
+        byModel[m].in += u.inputTokens || 0;
+        byModel[m].out += u.outputTokens || 0;
+        byModel[m].total += u.totalTokens || 0;
+      });
+
+      let rows = '';
+      let grand = { calls: 0, in: 0, out: 0, total: 0, cost: 0 };
+      Object.entries(byModel).sort((a, b) => b[1].total - a[1].total).forEach(([model, s]) => {
+        const r = rateFor(model);
+        const cost = r ? (s.in / 1e6) * r.in + (s.out / 1e6) * r.out : null;
+        grand.calls += s.calls; grand.in += s.in; grand.out += s.out; grand.total += s.total;
+        if (cost != null) grand.cost += cost;
+        rows += `<tr>
+          <td>${escapeHtml(model)}</td>
+          <td>${s.calls.toLocaleString()}</td>
+          <td>${s.in.toLocaleString()}</td>
+          <td>${s.out.toLocaleString()}</td>
+          <td>${s.total.toLocaleString()}</td>
+          <td>${cost != null ? '$' + cost.toFixed(4) : '—'}</td>
+        </tr>`;
+      });
+      rows += `<tr style="font-weight:800;border-top:2px solid var(--border)">
+        <td>합계</td>
+        <td>${grand.calls.toLocaleString()}</td>
+        <td>${grand.in.toLocaleString()}</td>
+        <td>${grand.out.toLocaleString()}</td>
+        <td>${grand.total.toLocaleString()}</td>
+        <td>$${grand.cost.toFixed(4)}</td>
+      </tr>`;
+      tbody.innerHTML = rows;
     }
 
     // ── Students ──

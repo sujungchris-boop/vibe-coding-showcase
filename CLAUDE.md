@@ -5,7 +5,8 @@
 
 ## 스택 & 배포
 - **순수 HTML/CSS/JS** (빌드 도구 없음, 프레임워크 없음). 각 페이지는 `<script type="module">`.
-- **Firebase Firestore** — 실시간 데이터 저장 (`works`, `students`, `comments` 컬렉션)
+- **Vercel 서버리스 함수** — `api/generate.js` 한 개 (AI 스튜디오용 LLM 호출). 정적 사이트 + 함수 하이브리드.
+- **Firebase Firestore** — 실시간 데이터 저장 (`works`, `students`, `comments`, `usage` 컬렉션)
 - **Firebase Storage** — 프로필 사진 (`profiles/` 경로)
 - **배포:** Vercel (GitHub `main` push 시 자동 배포) → https://vibe-coding-showcase-ten.vercel.app
 - **GitHub:** https://github.com/sujungchris-boop/vibe-coding-showcase
@@ -21,16 +22,33 @@
 | `work.html` | 작품 상세. 전체화면 미리보기 + 댓글(피드백). `?id=` |
 | `student.html` | 학생 프로필. 해당 학생의 작품 모음. `?name=` |
 | `submit.html` | 학생 제출 페이지. 비밀번호 인증 → 작품 추가/업데이트/삭제, 프로필 사진 |
-| `admin.html` | 관리자. 학생/작품/댓글 관리 + 삭제 + 통계 |
+| `studio.html` | **AI 스튜디오.** 채팅으로 AI에게 통짜 HTML 생성 요청 → 라이브 프리뷰 → 반복 수정 → `게시하기`(이름+비번 인증)로 `works`에 `fullHtml` 저장 |
+| `admin.html` | 관리자. 학생/작품/댓글 관리 + 삭제 + 통계 + **AI 사용량(토큰/추정비용)** |
+| `api/generate.js` | **Vercel 서버리스 함수.** API 키를 숨기고 LLM 호출. 프로바이더 추상화(기본 Gemini, env로 Claude 교체) |
 | `utils.js` | **공통 모듈** — escapeHtml/escapeAttr/buildSrcdoc/nameToColor/해시/showToast |
 | `firebase-config.js` | Firebase 설정값 (프로젝트: covenant-high-school-vibe) |
 
 ## 데이터 모델
-- `works/{id}`: `studentName, title, description, html, css, js, version(숫자), createdAt, updatedAt`
+- `works/{id}`: `studentName, title, description, fullHtml, html, css, js, version(숫자), createdAt, updatedAt`
+  - **입력 방식 2가지** (submit.html 모드 토글): ① `fullHtml`(통짜 HTML 한 파일, 기본·추천) ② `html`/`css`/`js` 분리.
+    한쪽 모드로 저장하면 반대편 필드는 빈 문자열로 둔다. 렌더는 `buildSrcdoc`(utils.js)이
+    `fullHtml`이 있으면 그대로, 없으면 html/css/js 조합으로 처리 → **레거시 작품 100% 호환**.
   - 같은 작품을 **업데이트하면 version 증가** (v1 → v2 …). 새 작품은 별도 문서.
   - 레거시 `round` 필드("1차" 등)가 일부 남아있을 수 있음 — 신규는 version 사용.
 - `students/{이름}`: `name, password(SHA-256 해시), photoURL?, createdAt`
 - `comments/{id}`: `workId, author, content, createdAt`
+- `usage/{id}`: `model, inputTokens, outputTokens, totalTokens, createdAt` — AI 스튜디오 호출 1건당 1문서.
+  studio.html이 응답받은 토큰 수를 클라에서 기록. admin.html이 모델별 집계·추정비용 표시(요율표 `TOKEN_RATES`).
+
+## AI 스튜디오 / 서버리스 함수 (`api/generate.js`)
+- 정적 사이트에 Vercel 함수 1개를 더한 구조. 의존성 없이 Node 내장 `fetch`로 LLM API 직접 호출(CommonJS `module.exports`).
+- **프로바이더 추상화** — 환경변수 `LLM_PROVIDER`로 분기 (`gemini` 기본 | `claude`).
+- **Vercel 환경변수** (Settings → Environment Variables, 깃/코드에 키 절대 금지):
+  - `LLM_PROVIDER` (선택, 기본 `gemini`)
+  - `GEMINI_API_KEY` + `GEMINI_MODEL`(기본 `gemini-2.5-flash`)
+  - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(기본 `claude-haiku-4-5-20251001`)
+- 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ html, usage }`. 시스템 프롬프트가 "통짜 HTML·CDN만·코드만" 강제.
+- ⚠️ **로컬 `npx serve`는 함수를 안 돌린다.** 함수 검증은 `vercel dev` 또는 Vercel 배포 후. studio UI 자체는 로컬 확인 가능.
 
 ## 인증 (클라이언트 전용)
 - **학생 비밀번호:** `utils.js`의 `hashPassword`(SHA-256+고정 솔트)로 해시 저장. 평문 미저장.
@@ -54,6 +72,7 @@ service cloud.firestore {
       allow create, update: if request.resource.data.studentName is string
         && request.resource.data.studentName.size() <= 30
         && request.resource.data.get('title', '').size() <= 100
+        && request.resource.data.get('fullHtml', '').size() < 500000
         && request.resource.data.get('html', '').size() < 200000
         && request.resource.data.get('css', '').size() < 200000
         && request.resource.data.get('js', '').size() < 200000;
@@ -77,6 +96,14 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if true;
     }
+
+    match /usage/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.totalTokens is number
+        && request.resource.data.get('model', '').size() <= 60;
+      allow update: if false;
+      allow delete: if true;
+    }
   }
 }
 ```
@@ -95,6 +122,8 @@ service firebase.storage {
 
 ## 작업 관례
 - 코드 변경 후 로컬(`showcase` 프리뷰)에서 확인 → GitHub push → Vercel 자동 배포.
-- 학생 결과물은 iframe `sandbox="allow-scripts"` + `srcdoc`로 렌더. **순수 HTML/CSS/JS만** 지원
-  (React 등 프레임워크는 동작 안 함 — 학생 가이드에 반영할 것).
+- 학생 결과물은 iframe `sandbox="allow-scripts"` + `srcdoc`로 렌더. **CDN 라이브러리는 작동**
+  (p5.js·Three.js·Phaser·GSAP·Tone.js 등 `<script src="https://cdn...">` 포함 OK).
+  안 되는 것: `npm install`·빌드가 필요한 다중 파일 프로젝트(Vite/Next 등). React는 CDN UMD+Babel standalone이면 가능.
+  → **학생 가이드: "클로드에게 '하나의 HTML 파일로 만들어줘'라고 요청"하고 그 코드를 '전체 HTML' 모드에 붙여넣기.**
 - 공통 함수는 `utils.js`에 두고 각 페이지에서 import (중복 금지).

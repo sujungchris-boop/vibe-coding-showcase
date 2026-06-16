@@ -11,7 +11,10 @@ export function escapeAttr(str) {
 }
 
 // ── 작품 코드 → iframe srcdoc ──
+// fullHtml(통짜 HTML 한 파일)이 있으면 그대로 렌더 — CDN 라이브러리(p5/Three/Phaser 등) 지원.
+// 없으면 레거시 방식(html/css/js 분리)으로 조합.
 export function buildSrcdoc(w) {
+  if (w.fullHtml && w.fullHtml.trim()) return w.fullHtml;
   return `<!DOCTYPE html><html><head><style>${w.css || ''}</style></head><body>${w.html || ''}<script>${w.js || ''}<\/script></body></html>`;
 }
 

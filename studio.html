@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 스튜디오 · 바이브코딩</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #23232f;
+      --border: #2e2e3e;
+      --accent: #7c6ff7;
+      --accent2: #5ee8d4;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --danger: #f87171;
+      --success: #4ade80;
+      --radius: 12px;
+    }
+
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .back-link {
+      color: var(--muted); font-size: 13px; font-weight: 600;
+      text-decoration: none; transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+    .topbar-title { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+    .topbar-title .tag {
+      font-size: 10px; font-weight: 800; color: var(--accent);
+      background: rgba(124,111,247,0.15); border: 1px solid rgba(124,111,247,0.3);
+      padding: 2px 8px; border-radius: 100px; margin-left: 8px; letter-spacing: 0.06em;
+    }
+    .btn-ghost {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius);
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .btn-ghost:hover { border-color: var(--accent); }
+
+    /* Layout */
+    .studio {
+      flex: 1; display: grid; grid-template-columns: 380px 1fr;
+      min-height: 0;
+    }
+
+    /* Chat pane */
+    .chat {
+      display: flex; flex-direction: column; min-height: 0;
+      border-right: 1px solid var(--border);
+    }
+    .chat-log {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .chat-empty {
+      margin: auto; text-align: center; color: var(--muted); font-size: 13px;
+      line-height: 1.7; max-width: 280px;
+    }
+    .chat-empty b { color: var(--text); display: block; margin-bottom: 8px; font-size: 15px; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+    .example-chip {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      font-size: 12px; padding: 7px 12px; border-radius: 100px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .example-chip:hover { border-color: var(--accent); color: var(--text); }
+
+    .msg { max-width: 92%; font-size: 13px; line-height: 1.6; }
+    .msg.user {
+      align-self: flex-end; background: var(--accent); color: #fff;
+      padding: 10px 14px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap;
+    }
+    .msg.ai {
+      align-self: flex-start; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 14px; border-radius: 14px 14px 14px 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .msg.ai .v { font-weight: 700; color: var(--accent2); }
+    .msg.ai.error { border-color: var(--danger); color: var(--danger); }
+    .msg.loading { align-self: flex-start; color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+    .dots span { animation: blink 1.2s infinite both; }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+    .chat-input-wrap {
+      border-top: 1px solid var(--border); padding: 14px; flex-shrink: 0;
+    }
+    .chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
+    #chat-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 10px 12px; border-radius: var(--radius); resize: none;
+      outline: none; max-height: 120px; line-height: 1.5;
+    }
+    #chat-input:focus { border-color: var(--accent); }
+    .btn-send {
+      background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+      width: 42px; height: 42px; font-size: 18px; cursor: pointer; flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .btn-send:hover { opacity: 0.9; }
+    .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Preview pane */
+    .preview { display: flex; flex-direction: column; min-height: 0; background: #0b0b0f; }
+    .preview-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .preview-toolbar .label {
+      font-size: 11px; color: var(--muted); font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .preview-actions { display: flex; gap: 8px; }
+    .btn-mini {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-mini:hover { color: var(--text); border-color: var(--accent); }
+    .btn-publish {
+      background: var(--accent2); border: none; color: #06221d;
+      font-size: 12px; font-weight: 800; padding: 6px 16px; border-radius: 8px; cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-publish:hover { opacity: 0.9; }
+    .btn-publish:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .preview-frame-wrap { flex: 1; min-height: 0; background: #fff; }
+    #preview-iframe { width: 100%; height: 100%; border: none; display: block; }
+    .preview-placeholder {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 13px; background: var(--bg); text-align: center; padding: 20px;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 26px; width: 100%; max-width: 380px;
+    }
+    .modal h2 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .modal p.sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+    .modal label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .modal .field { margin-bottom: 14px; }
+    .modal input {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-size: 14px; padding: 10px 12px; border-radius: var(--radius);
+      outline: none; font-family: inherit;
+    }
+    .modal input:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+    .btn-primary {
+      flex: 1; background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+      font-size: 14px; font-weight: 700; padding: 11px; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-cancel {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      font-size: 14px; font-weight: 600; padding: 11px 18px; border-radius: var(--radius); cursor: pointer;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      font-size: 13px; font-weight: 600; padding: 12px 24px; border-radius: 100px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.2s, transform 0.2s;
+      z-index: 999; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    /* Mobile */
+    @media (max-width: 760px) {
+      body { overflow: auto; height: auto; }
+      .studio { grid-template-columns: 1fr; }
+      .chat { border-right: none; border-bottom: 1px solid var(--border); height: 60vh; }
+      .preview-frame-wrap { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="back-link">← 쇼케이스</a>
+      <span class="topbar-title">AI 스튜디오 <span class="tag">BETA</span></span>
+    </div>
+    <button class="btn-ghost" id="btn-new">+ 새로 시작</button>
+  </div>
+
+  <div class="studio">
+    <!-- 채팅 -->
+    <div class="chat">
+      <div class="chat-log" id="chat-log">
+        <div class="chat-empty" id="chat-empty">
+          <b>무엇을 만들어볼까요?</b>
+          아이디어를 적으면 AI가 바로 만들어줘요.<br>결과물을 보면서 계속 고쳐달라고 할 수 있어요.
+          <div class="chip-row">
+            <button class="example-chip">두더지 잡기 게임</button>
+            <button class="example-chip">성경 퀴즈 룰렛</button>
+            <button class="example-chip">색칠 공부 캔버스</button>
+            <button class="example-chip">카드 짝맞추기</button>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-wrap">
+        <div class="chat-input-row">
+          <textarea id="chat-input" rows="1" placeholder="예: 동물 친구들이 나오는 두더지 잡기 게임 만들어줘"></textarea>
+          <button class="btn-send" id="btn-send" title="보내기">↑</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 미리보기 -->
+    <div class="preview">
+      <div class="preview-toolbar">
+        <span class="label">미리보기</span>
+        <div class="preview-actions">
+          <button class="btn-mini" id="btn-refresh">↺ 새로고침</button>
+          <button class="btn-mini" id="btn-fullscreen">⛶ 전체화면</button>
+          <button class="btn-publish" id="btn-publish" disabled>✦ 게시하기</button>
+        </div>
+      </div>
+      <div class="preview-frame-wrap">
+        <div class="preview-placeholder" id="preview-placeholder">왼쪽에서 아이디어를 보내면<br>여기에 결과물이 바로 나타나요.</div>
+        <iframe id="preview-iframe" sandbox="allow-scripts" style="display:none"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- 게시 모달 -->
+  <div class="modal-backdrop" id="publish-modal">
+    <div class="modal">
+      <h2>쇼케이스에 게시</h2>
+      <p class="sub">로그인한 이름으로 작품을 등록해요. 게시하면 메인 갤러리에 나타납니다.</p>
+      <div class="field">
+        <label>작품 제목</label>
+        <input type="text" id="pub-title" placeholder="예: 동물 두더지 잡기" maxlength="50">
+      </div>
+      <div class="field">
+        <label>한 줄 설명</label>
+        <input type="text" id="pub-desc" placeholder="어떤 작품인지 한 줄로" maxlength="100">
+      </div>
+      <div class="field">
+        <label>이름</label>
+        <input type="text" id="pub-name" placeholder="홍길동" maxlength="20">
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input type="password" id="pub-password" placeholder="제출 페이지와 같은 비밀번호" maxlength="30">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="btn-publish-confirm">게시하기</button>
+        <button class="btn-cancel" id="btn-publish-cancel">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getFirestore, collection, addDoc, doc, getDoc, serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import firebaseConfig from './firebase-config.js';
+    import { verifyPassword, showToast } from './utils.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    let messages = [];     // { role:'user'|'assistant', content }
+    let currentHtml = '';  // 최신 결과물
+    let aiVersion = 0;
+    let busy = false;
+
+    const chatLog   = document.getElementById('chat-log');
+    const chatEmpty = document.getElementById('chat-empty');
+    const input     = document.getElementById('chat-input');
+    const btnSend   = document.getElementById('btn-send');
+    const iframe    = document.getElementById('preview-iframe');
+    const placeholder = document.getElementById('preview-placeholder');
+    const btnPublish  = document.getElementById('btn-publish');
+
+    // textarea 자동 높이
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    btnSend.addEventListener('click', send);
+
+    // 예시 칩
+    document.querySelectorAll('.example-chip').forEach(chip => {
+      chip.addEventListener('click', () => { input.value = chip.textContent + ' 만들어줘'; input.focus(); });
+    });
+
+    // 새로 시작
+    document.getElementById('btn-new').addEventListener('click', () => {
+      if (busy) return;
+      if (messages.length && !confirm('지금까지의 대화와 결과물이 사라져요. 새로 시작할까요?')) return;
+      messages = []; currentHtml = ''; aiVersion = 0;
+      chatLog.innerHTML = '';
+      chatLog.appendChild(chatEmpty);
+      chatEmpty.style.display = '';
+      iframe.style.display = 'none'; iframe.srcdoc = '';
+      placeholder.style.display = 'flex';
+      btnPublish.disabled = true;
+    });
+
+    function addUserMsg(text) {
+      chatEmpty.style.display = 'none';
+      const el = document.createElement('div');
+      el.className = 'msg user';
+      el.textContent = text;
+      chatLog.appendChild(el);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function addLoading() {
+      const el = document.createElement('div');
+      el.className = 'msg loading';
+      el.innerHTML = '만드는 중 <span class="dots"><span>·</span><span>·</span><span>·</span></span>';
+      chatLog.appendChild(el);
+      chatLog.scrollTop = chatLog.scrollHeight;
+      return el;
+    }
+
+    function addAiMsg(version) {
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      el.innerHTML = `<span class="v">v${version}</span> 결과물이 준비됐어요 — 더 고칠 부분을 말해보세요!`;
+      chatLog.appendChild(el);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function addErrorMsg(text) {
+      const el = document.createElement('div');
+      el.className = 'msg ai error';
+      el.textContent = '⚠ ' + text;
+      chatLog.appendChild(el);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function renderPreview(html) {
+      placeholder.style.display = 'none';
+      iframe.style.display = 'block';
+      iframe.srcdoc = html;
+    }
+
+    async function send() {
+      if (busy) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      busy = true;
+      btnSend.disabled = true;
+      input.value = '';
+      input.style.height = 'auto';
+
+      addUserMsg(text);
+      messages.push({ role: 'user', content: text });
+      const loadingEl = addLoading();
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages }),
+        });
+        const data = await res.json();
+        loadingEl.remove();
+
+        if (!res.ok) throw new Error(data.error || `오류 (${res.status})`);
+
+        currentHtml = data.html;
+        messages.push({ role: 'assistant', content: data.html });
+        aiVersion++;
+        addAiMsg(aiVersion);
+        renderPreview(currentHtml);
+        btnPublish.disabled = false;
+
+        logUsage(data.usage);
+      } catch (e) {
+        loadingEl.remove();
+        console.error(e);
+        addErrorMsg(e.message || '생성에 실패했어요. 잠시 후 다시 시도해주세요.');
+        // 실패한 사용자 메시지는 히스토리에서 빼서 다음 요청이 꼬이지 않게
+        messages.pop();
+      } finally {
+        busy = false;
+        btnSend.disabled = false;
+        input.focus();
+      }
+    }
+
+    // ── 토큰 사용량 기록 ──
+    async function logUsage(usage) {
+      if (!usage) return;
+      try {
+        await addDoc(collection(db, 'usage'), {
+          model: usage.model || '',
+          inputTokens: usage.inputTokens || 0,
+          outputTokens: usage.outputTokens || 0,
+          totalTokens: usage.totalTokens || 0,
+          createdAt: serverTimestamp(),
+        });
+      } catch (e) { /* 사용량 기록 실패는 사용자 경험에 영향 주지 않음 */ }
+    }
+
+    // ── 미리보기 도구 ──
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      if (currentHtml) renderPreview(currentHtml);
+    });
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+      if (iframe.requestFullscreen) iframe.requestFullscreen();
+    });
+
+    // ── 게시 ──
+    const modal = document.getElementById('publish-modal');
+    btnPublish.addEventListener('click', () => {
+      if (!currentHtml) return;
+      modal.classList.add('show');
+      document.getElementById('pub-name').focus();
+    });
+    document.getElementById('btn-publish-cancel').addEventListener('click', () => modal.classList.remove('show'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+
+    document.getElementById('btn-publish-confirm').addEventListener('click', async () => {
+      const title = document.getElementById('pub-title').value.trim();
+      const desc  = document.getElementById('pub-desc').value.trim();
+      const name  = document.getElementById('pub-name').value.trim();
+      const pw    = document.getElementById('pub-password').value;
+
+      if (!title) { showToast('작품 제목을 입력해주세요.', 'error'); return; }
+      if (!name)  { showToast('이름을 입력해주세요.', 'error'); return; }
+      if (!pw)    { showToast('비밀번호를 입력해주세요.', 'error'); return; }
+      if (!currentHtml) { showToast('먼저 결과물을 만들어주세요.', 'error'); return; }
+
+      const btn = document.getElementById('btn-publish-confirm');
+      btn.disabled = true; btn.textContent = '게시 중...';
+      try {
+        const snap = await getDoc(doc(db, 'students', name));
+        if (!snap.exists()) { showToast('가입되지 않은 이름이에요. 제출 페이지에서 먼저 가입해주세요.', 'error'); return; }
+        if (!(await verifyPassword(pw, snap.data().password))) { showToast('비밀번호가 틀렸어요.', 'error'); return; }
+
+        const ref = await addDoc(collection(db, 'works'), {
+          studentName: name,
+          title,
+          description: desc,
+          fullHtml: currentHtml,
+          html: '', css: '', js: '',
+          version: 1,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        modal.classList.remove('show');
+        showToast('게시 완료! 🎉 쇼케이스로 이동합니다.', 'success');
+        setTimeout(() => { window.location.href = `work?id=${ref.id}`; }, 1100);
+      } catch (e) {
+        console.error(e);
+        showToast('게시 실패. 다시 시도해주세요.', 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = '게시하기';
+      }
+    });
+  </script>
+
+</body>
+</html>
