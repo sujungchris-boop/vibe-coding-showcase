@@ -94,9 +94,13 @@
     .msg.ai {
       align-self: flex-start; background: var(--surface2); border: 1px solid var(--border);
       color: var(--text); padding: 10px 14px; border-radius: 14px 14px 14px 4px;
-      display: flex; align-items: center; gap: 8px;
+      white-space: pre-wrap; word-break: break-word;
     }
-    .msg.ai .v { font-weight: 700; color: var(--accent2); }
+    .msg.ai .v {
+      display: inline-block; font-weight: 800; font-size: 11px; color: var(--accent2);
+      background: rgba(94,232,212,0.12); border: 1px solid rgba(94,232,212,0.3);
+      padding: 1px 7px; border-radius: 100px; margin-right: 6px;
+    }
     .msg.ai.error { border-color: var(--danger); color: var(--danger); }
     .msg.loading { align-self: flex-start; color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
     .dots span { animation: blink 1.2s infinite both; }
@@ -224,18 +228,18 @@
       <div class="chat-log" id="chat-log">
         <div class="chat-empty" id="chat-empty">
           <b>무엇을 만들어볼까요?</b>
-          아이디어를 적으면 AI가 바로 만들어줘요.<br>결과물을 보면서 계속 고쳐달라고 할 수 있어요.
+          대화하듯 자유롭게 요청하고, 결과물을 보며 계속 다듬어요.<br>아이디어를 같이 고민하거나 물어봐도 좋아요.
           <div class="chip-row">
-            <button class="example-chip">두더지 잡기 게임</button>
-            <button class="example-chip">성경 퀴즈 룰렛</button>
-            <button class="example-chip">색칠 공부 캔버스</button>
-            <button class="example-chip">카드 짝맞추기</button>
+            <button class="example-chip">간단한 타이머 앱</button>
+            <button class="example-chip">그림 그리기 보드</button>
+            <button class="example-chip">퀴즈 게임</button>
+            <button class="example-chip">주사위 굴리기</button>
           </div>
         </div>
       </div>
       <div class="chat-input-wrap">
         <div class="chat-input-row">
-          <textarea id="chat-input" rows="1" placeholder="예: 동물 친구들이 나오는 두더지 잡기 게임 만들어줘"></textarea>
+          <textarea id="chat-input" rows="1" placeholder="만들고 싶은 걸 말하거나 무엇이든 물어보세요"></textarea>
           <button class="btn-send" id="btn-send" title="보내기">↑</button>
         </div>
       </div>
@@ -374,10 +378,18 @@
       return el;
     }
 
-    function addAiMsg(version) {
+    function addAiReply(text, version) {
       const el = document.createElement('div');
       el.className = 'msg ai';
-      el.innerHTML = `<span class="v">v${version}</span> 결과물이 준비됐어요 — 더 고칠 부분을 말해보세요!`;
+      if (version) {
+        const chip = document.createElement('span');
+        chip.className = 'v';
+        chip.textContent = 'v' + version;
+        el.appendChild(chip);
+      }
+      const span = document.createElement('span');
+      span.textContent = text;   // 안전하게 텍스트로 (줄바꿈은 CSS pre-wrap이 유지)
+      el.appendChild(span);
       chatLog.appendChild(el);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -427,12 +439,25 @@
 
         if (!res.ok) throw new Error(data.error || `오류 (${res.status})`);
 
-        currentHtml = data.html;
-        messages.push({ role: 'assistant', content: data.html });
-        aiVersion++;
-        addAiMsg(aiVersion);
-        renderPreview(currentHtml);
-        btnPublish.disabled = false;
+        const html = data.html || '';
+        let reply = (data.reply || '').trim();
+
+        // 히스토리에는 설명+코드 전체를 저장해 모델이 맥락을 유지하게 함
+        const assistantContent = html ? `${reply}\n\n\`\`\`html\n${html}\n\`\`\`` : reply;
+        messages.push({ role: 'assistant', content: assistantContent });
+
+        let version = null;
+        if (html) {
+          currentHtml = html;
+          aiVersion++;
+          version = aiVersion;
+          renderPreview(currentHtml);
+          btnPublish.disabled = false;
+        }
+        if (!reply) reply = html
+          ? `✨ 결과물을 v${version}(으)로 만들었어요. 오른쪽 미리보기를 확인해보세요!`
+          : '(빈 응답)';
+        addAiReply(reply, version);
 
         logUsage(data.usage);
       } catch (e) {
