@@ -371,6 +371,37 @@
     }
     .btn-new-work:hover { background: rgba(94,232,212,0.18); }
 
+    /* AI buttons */
+    .btn-ai-new {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), #9b7cf9);
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-top: 12px;
+    }
+    .btn-ai-new:hover { opacity: 0.92; }
+    .btn-ai-new:active { transform: scale(0.99); }
+
+    .btn-ai {
+      background: rgba(124,111,247,0.12);
+      border: 1px solid rgba(124,111,247,0.35);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-ai:hover { background: rgba(124,111,247,0.22); }
+
     /* Mode tabs (전체 HTML / 분리) */
     .mode-tabs {
       display: flex;
@@ -659,7 +690,8 @@
       <div class="history-list" id="history-list">
         <div class="loading">불러오는 중...</div>
       </div>
-      <button class="btn-new-work" id="btn-new-work">+ 새 작품 추가</button>
+      <button class="btn-ai-new" id="btn-ai-new">✨ AI로 새 작품 만들기</button>
+      <button class="btn-new-work" id="btn-new-work">+ 직접 코드 입력해서 추가</button>
       <button class="btn-change-pw" id="btn-change-pw">🔑 비밀번호 변경</button>
     </div>
 
@@ -773,7 +805,7 @@
       getStorage, ref, uploadBytes, getDownloadURL
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
     import firebaseConfig from './firebase-config.js';
-    import { escapeHtml, nameToColor, hashPassword, verifyPassword, isHashed, showToast } from './utils.js';
+    import { escapeHtml, nameToColor, hashPassword, verifyPassword, isHashed, showToast, buildSrcdoc } from './utils.js';
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -1088,15 +1120,34 @@
             <span class="history-time">${date} 업데이트</span>
           </div>
           <div class="history-actions">
+            <button class="btn-ai" data-id="${item.id}">✨ AI 수정</button>
             <button class="btn-update" data-id="${item.id}">업데이트</button>
             <button class="btn-delete-work" data-id="${item.id}">삭제</button>
           </div>
         `;
+        div.querySelector('.btn-ai').addEventListener('click', () => openStudio({
+          name: currentName,
+          editId: item.id,
+          version: item.version || 1,
+          title: item.title || '',
+          desc: item.description || '',
+          seedHtml: buildSrcdoc(item),
+        }));
         div.querySelector('.btn-update').addEventListener('click', () => startUpdate(item));
         div.querySelector('.btn-delete-work').addEventListener('click', () => deleteWork(item));
         historyList.appendChild(div);
       });
     }
+
+    // ── AI 스튜디오로 이동 (맥락을 sessionStorage로 전달) ──
+    function openStudio(ctx) {
+      sessionStorage.setItem('studioContext', JSON.stringify(ctx));
+      window.location.href = 'studio';
+    }
+    document.getElementById('btn-ai-new').addEventListener('click', () => {
+      if (!currentName) { showToast('먼저 로그인해주세요.', 'error'); return; }
+      openStudio({ name: currentName });
+    });
 
     // 새 작품 추가
     btnNewWork.addEventListener('click', () => {

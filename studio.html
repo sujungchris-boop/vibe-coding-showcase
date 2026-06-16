@@ -261,8 +261,8 @@
   <!-- 게시 모달 -->
   <div class="modal-backdrop" id="publish-modal">
     <div class="modal">
-      <h2>쇼케이스에 게시</h2>
-      <p class="sub">로그인한 이름으로 작품을 등록해요. 게시하면 메인 갤러리에 나타납니다.</p>
+      <h2 id="pub-heading">쇼케이스에 게시</h2>
+      <p class="sub" id="pub-sub">로그인한 이름으로 작품을 등록해요. 게시하면 메인 갤러리에 나타납니다.</p>
       <div class="field">
         <label>작품 제목</label>
         <input type="text" id="pub-title" placeholder="예: 동물 두더지 잡기" maxlength="50">
@@ -271,11 +271,11 @@
         <label>한 줄 설명</label>
         <input type="text" id="pub-desc" placeholder="어떤 작품인지 한 줄로" maxlength="100">
       </div>
-      <div class="field">
+      <div class="field" id="pub-name-field">
         <label>이름</label>
         <input type="text" id="pub-name" placeholder="홍길동" maxlength="20">
       </div>
-      <div class="field">
+      <div class="field" id="pub-pw-field">
         <label>비밀번호</label>
         <input type="password" id="pub-password" placeholder="제출 페이지와 같은 비밀번호" maxlength="30">
       </div>
@@ -291,7 +291,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, addDoc, doc, getDoc, serverTimestamp
+      getFirestore, collection, addDoc, updateDoc, doc, getDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import firebaseConfig from './firebase-config.js';
     import { verifyPassword, showToast } from './utils.js';
@@ -303,6 +303,19 @@
     let currentHtml = '';  // 최신 결과물
     let aiVersion = 0;
     let busy = false;
+
+    // ── 워크스페이스에서 넘어온 맥락 (한 번만 소비) ──
+    // { name, editId?, version?, title?, desc?, seedHtml? }
+    let ctx = null;
+    try {
+      const raw = sessionStorage.getItem('studioContext');
+      if (raw) { ctx = JSON.parse(raw); sessionStorage.removeItem('studioContext'); }
+    } catch (e) { ctx = null; }
+    const trustedName = ctx?.name || '';     // 로그인 검증된 신원 (있으면 재인증 불필요)
+    let editId = ctx?.editId || null;         // 기존 작품 수정이면 그 문서 id
+    let editVersion = ctx?.version || 0;      // 기존 작품의 현재 버전
+    let baseHtml = '';                        // 수정 시작점 코드 (첫 요청에 컨텍스트로 전달)
+    let seedConsumed = false;                 // baseHtml을 첫 요청에 이미 넣었는지
 
     const chatLog   = document.getElementById('chat-log');
     const chatEmpty = document.getElementById('chat-empty');
@@ -332,6 +345,9 @@
       if (busy) return;
       if (messages.length && !confirm('지금까지의 대화와 결과물이 사라져요. 새로 시작할까요?')) return;
       messages = []; currentHtml = ''; aiVersion = 0;
+      // 수정 맥락 해제 → 이후엔 새 작품으로 저장 (로그인 신원은 유지)
+      baseHtml = ''; seedConsumed = false; editId = null; editVersion = 0;
+      document.querySelector('.topbar-title').innerHTML = 'AI 스튜디오 <span class="tag">BETA</span>';
       chatLog.innerHTML = '';
       chatLog.appendChild(chatEmpty);
       chatEmpty.style.display = '';
@@ -391,7 +407,13 @@
       input.style.height = 'auto';
 
       addUserMsg(text);
-      messages.push({ role: 'user', content: text });
+      // 기존 작품 수정이면 첫 요청에 현재 코드를 컨텍스트로 함께 전달
+      let apiContent = text;
+      if (baseHtml && !seedConsumed) {
+        apiContent = `아래는 현재 작품의 전체 HTML 코드야. 이 코드를 기반으로 수정해줘.\n\n${baseHtml}\n\n[수정 요청]\n${text}`;
+        seedConsumed = true;
+      }
+      messages.push({ role: 'user', content: apiContent });
       const loadingEl = addLoading();
 
       try {
@@ -448,54 +470,116 @@
       if (iframe.requestFullscreen) iframe.requestFullscreen();
     });
 
-    // ── 게시 ──
+    // ── 게시 / 업데이트 ──
     const modal = document.getElementById('publish-modal');
+    const confirmBtn = document.getElementById('btn-publish-confirm');
+
     btnPublish.addEventListener('click', () => {
       if (!currentHtml) return;
+      const trusted = !!trustedName;
+      // 신뢰된 신원(워크스페이스에서 진입)이면 이름/비번 숨기고 프리필
+      document.getElementById('pub-name-field').style.display = trusted ? 'none' : '';
+      document.getElementById('pub-pw-field').style.display = trusted ? 'none' : '';
+
+      if (trusted) {
+        document.getElementById('pub-name').value = trustedName;
+        const t = document.getElementById('pub-title');
+        const d = document.getElementById('pub-desc');
+        if (!t.value && ctx?.title) t.value = ctx.title;
+        if (!d.value && ctx?.desc)  d.value = ctx.desc;
+        if (editId) {
+          document.getElementById('pub-heading').textContent = '작품 업데이트';
+          document.getElementById('pub-sub').textContent = `"${trustedName}"의 작품을 v${editVersion + 1}(으)로 업데이트해요.`;
+          confirmBtn.textContent = `v${editVersion + 1}으로 업데이트`;
+        } else {
+          document.getElementById('pub-heading').textContent = '쇼케이스에 게시';
+          document.getElementById('pub-sub').textContent = `"${trustedName}" 이름으로 새 작품을 게시해요.`;
+          confirmBtn.textContent = '게시하기';
+        }
+      } else {
+        document.getElementById('pub-heading').textContent = '쇼케이스에 게시';
+        document.getElementById('pub-sub').textContent = '제출 페이지의 이름·비밀번호로 작품을 등록해요.';
+        confirmBtn.textContent = '게시하기';
+      }
       modal.classList.add('show');
-      document.getElementById('pub-name').focus();
+      (trusted ? document.getElementById('pub-title') : document.getElementById('pub-name')).focus();
     });
+
     document.getElementById('btn-publish-cancel').addEventListener('click', () => modal.classList.remove('show'));
     modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
 
-    document.getElementById('btn-publish-confirm').addEventListener('click', async () => {
+    confirmBtn.addEventListener('click', async () => {
       const title = document.getElementById('pub-title').value.trim();
       const desc  = document.getElementById('pub-desc').value.trim();
-      const name  = document.getElementById('pub-name').value.trim();
-      const pw    = document.getElementById('pub-password').value;
-
       if (!title) { showToast('작품 제목을 입력해주세요.', 'error'); return; }
-      if (!name)  { showToast('이름을 입력해주세요.', 'error'); return; }
-      if (!pw)    { showToast('비밀번호를 입력해주세요.', 'error'); return; }
       if (!currentHtml) { showToast('먼저 결과물을 만들어주세요.', 'error'); return; }
 
-      const btn = document.getElementById('btn-publish-confirm');
-      btn.disabled = true; btn.textContent = '게시 중...';
+      const labelDefault = confirmBtn.textContent;
+      confirmBtn.disabled = true; confirmBtn.textContent = '저장 중...';
       try {
-        const snap = await getDoc(doc(db, 'students', name));
-        if (!snap.exists()) { showToast('가입되지 않은 이름이에요. 제출 페이지에서 먼저 가입해주세요.', 'error'); return; }
-        if (!(await verifyPassword(pw, snap.data().password))) { showToast('비밀번호가 틀렸어요.', 'error'); return; }
+        // 신원 확정: 신뢰된 신원이면 그대로, 아니면 이름+비번 검증
+        let name = trustedName;
+        if (!name) {
+          name = document.getElementById('pub-name').value.trim();
+          const pw = document.getElementById('pub-password').value;
+          if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
+          if (!pw)   { showToast('비밀번호를 입력해주세요.', 'error'); return; }
+          const snap = await getDoc(doc(db, 'students', name));
+          if (!snap.exists()) { showToast('가입되지 않은 이름이에요. 제출 페이지에서 먼저 가입해주세요.', 'error'); return; }
+          if (!(await verifyPassword(pw, snap.data().password))) { showToast('비밀번호가 틀렸어요.', 'error'); return; }
+        }
 
-        const ref = await addDoc(collection(db, 'works'), {
-          studentName: name,
-          title,
-          description: desc,
-          fullHtml: currentHtml,
-          html: '', css: '', js: '',
-          version: 1,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+        let targetId;
+        if (editId) {
+          // 기존 작품 업데이트 → 버전 증가
+          await updateDoc(doc(db, 'works', editId), {
+            title, description: desc,
+            fullHtml: currentHtml, html: '', css: '', js: '',
+            version: editVersion + 1,
+            updatedAt: serverTimestamp(),
+          });
+          targetId = editId;
+          showToast(`v${editVersion + 1}으로 업데이트되었습니다! ✓`, 'success');
+        } else {
+          // 새 작품
+          const ref = await addDoc(collection(db, 'works'), {
+            studentName: name,
+            title, description: desc,
+            fullHtml: currentHtml, html: '', css: '', js: '',
+            version: 1,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          targetId = ref.id;
+          showToast('게시 완료! 🎉 쇼케이스로 이동합니다.', 'success');
+        }
         modal.classList.remove('show');
-        showToast('게시 완료! 🎉 쇼케이스로 이동합니다.', 'success');
-        setTimeout(() => { window.location.href = `work?id=${ref.id}`; }, 1100);
+        setTimeout(() => { window.location.href = `work?id=${targetId}`; }, 1100);
       } catch (e) {
         console.error(e);
-        showToast('게시 실패. 다시 시도해주세요.', 'error');
+        showToast('저장 실패. 다시 시도해주세요.', 'error');
       } finally {
-        btn.disabled = false; btn.textContent = '게시하기';
+        confirmBtn.disabled = false; confirmBtn.textContent = labelDefault;
       }
     });
+
+    // ── 워크스페이스 맥락 초기화 (기존 작품 불러오기) ──
+    (function initContext() {
+      if (ctx?.seedHtml) {
+        baseHtml = ctx.seedHtml;
+        currentHtml = ctx.seedHtml;
+        renderPreview(currentHtml);
+        btnPublish.disabled = false;
+        chatEmpty.style.display = 'none';
+        const note = document.createElement('div');
+        note.className = 'msg ai';
+        note.textContent = `📂 "${ctx.title || '기존 작품'}"을(를) 불러왔어요. 어떻게 바꿀지 말해보세요!`;
+        chatLog.appendChild(note);
+      }
+      if (editId) {
+        document.querySelector('.topbar-title').innerHTML = 'AI 스튜디오 <span class="tag">수정 중</span>';
+      }
+    })();
   </script>
 
 </body>
