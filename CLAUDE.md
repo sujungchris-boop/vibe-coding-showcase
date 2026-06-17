@@ -47,7 +47,9 @@
   - `LLM_PROVIDER` (선택, 기본 `gemini`)
   - `GEMINI_API_KEY` + `GEMINI_MODEL`(기본 `gemini-2.5-flash`)
   - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(기본 `claude-haiku-4-5-20251001`)
-- 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ html, usage }`. 시스템 프롬프트가 "통짜 HTML·CDN만·코드만" 강제.
+- 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ reply, html, usage }` (`reply`=대화 텍스트, `html`=추출된 통짜 결과물, 없으면 `''`).
+- **`SYSTEM_PROMPT`**(api/generate.js 상단)는 "자유로운 범용 AI"로 두되 플랫폼 배경(쇼케이스/학생/어린이 교구)·스튜디오 흐름·게시 버튼 동작·코드 환경 제약(통짜 HTML·CDN만)을 알려준다. `extractHtml`이 ```html 코드블록만 결과물로 분리하고 나머지는 대화로 처리(티키타카).
+  - ⭐ **플랫폼 기능을 바꾸면 `SYSTEM_PROMPT`도 같이 갱신한다** — AI가 화면/기능을 잘못 안내하지 않도록 (예: 게시 버튼·새 페이지·새 흐름 추가 시 프롬프트에 반영).
 - ⚠️ **로컬 `npx serve`는 함수를 안 돌린다.** 함수 검증은 `vercel dev` 또는 Vercel 배포 후. studio UI 자체는 로컬 확인 가능.
 
 ## 인증 (클라이언트 전용)
