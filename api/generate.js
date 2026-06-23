@@ -8,7 +8,7 @@
 //   GEMINI_API_KEY   Gemini 사용 시 필수
 //   GEMINI_MODEL     기본 'gemini-2.5-flash'
 //   ANTHROPIC_API_KEY  Claude 사용 시 필수
-//   CLAUDE_MODEL     기본 'claude-haiku-4-5-20251001'
+//   CLAUDE_MODEL     기본 'claude-haiku-4-5' (가성비). 더 높은 품질이 필요하면: 'claude-sonnet-4-6'
 //
 // 요청  (POST):  { messages: [{ role:'user'|'assistant', content:string }, ...] }
 // 응답:          { reply, html, usage: { model, inputTokens, outputTokens, totalTokens } }
@@ -103,7 +103,7 @@ async function callGemini(messages) {
 async function callClaude(messages) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY가 설정되지 않았습니다.');
-  const model = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
+  const model = process.env.CLAUDE_MODEL || 'claude-haiku-4-5'; // 가성비 기본값 (품질 우선이면: claude-sonnet-4-6)
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -138,9 +138,42 @@ async function callClaude(messages) {
   };
 }
 
+// ── 레이트리밋 (인메모리, 베스트에포트) ──
+// /api/generate는 로그인 없이 호출 가능하므로, 한 IP의 연타·폭주로 LLM 토큰 비용이
+// 무제한 발생하는 것을 막는다. Vercel 함수는 stateless하지만 워밍된 인스턴스는 모듈
+// 스코프를 재사용하므로, 같은 인스턴스로 들어오는 빠른 반복 호출을 차단할 수 있다.
+// ⚠️ 콜드스타트·다중 인스턴스에선 완벽하지 않다 — 강한 보장이 필요하면
+//    Vercel KV / Upstash, 또는 Firestore 카운터로 확장할 것.
+const RL_WINDOW_MS = 60 * 1000; // 1분 창
+const RL_MAX = 12;              // IP당 분당 최대 호출 (대화형 스튜디오엔 충분, 봇 연타는 차단)
+const rlHits = new Map();       // ip -> 최근 호출 타임스탬프[]
+
+function rateLimited(ip) {
+  const now = Date.now();
+  const arr = (rlHits.get(ip) || []).filter(t => now - t < RL_WINDOW_MS);
+  arr.push(now);
+  rlHits.set(ip, arr);
+  if (rlHits.size > 5000) { // 메모리 누수 방지: 오래된 IP 정리
+    for (const [k, v] of rlHits) {
+      if (!v.length || now - v[v.length - 1] > RL_WINDOW_MS) rlHits.delete(k);
+    }
+  }
+  return arr.length > RL_MAX;
+}
+
+function clientIp(req) {
+  const xff = req.headers['x-forwarded-for'] || '';
+  return xff.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'POST만 허용됩니다.' });
+    return;
+  }
+
+  if (rateLimited(clientIp(req))) {
+    res.status(429).json({ error: '요청이 너무 잦아요. 잠시 후 다시 시도해주세요.' });
     return;
   }
 

@@ -4,23 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI 스튜디오 · 바이브코딩</title>
+  <link rel="stylesheet" href="styles.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #23232f;
-      --border: #2e2e3e;
-      --accent: #7c6ff7;
-      --accent2: #5ee8d4;
-      --text: #e8e8f0;
-      --muted: #7a7a9a;
-      --danger: #f87171;
-      --success: #4ade80;
-      --radius: 12px;
-    }
-
     html, body { height: 100%; }
     body {
       background: var(--bg);
@@ -191,18 +176,6 @@
       font-size: 14px; font-weight: 600; padding: 11px 18px; border-radius: var(--radius); cursor: pointer;
     }
 
-    /* Toast */
-    .toast {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--surface); border: 1px solid var(--border); color: var(--text);
-      font-size: 13px; font-weight: 600; padding: 12px 24px; border-radius: 100px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.2s, transform 0.2s;
-      z-index: 999; white-space: nowrap;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    .toast.success { border-color: var(--success); color: var(--success); }
-    .toast.error { border-color: var(--danger); color: var(--danger); }
-
     /* Mobile */
     @media (max-width: 760px) {
       body { overflow: auto; height: auto; }
@@ -293,15 +266,11 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, addDoc, updateDoc, doc, getDoc, serverTimestamp
+      collection, addDoc, updateDoc, doc, getDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import firebaseConfig from './firebase-config.js';
+    import { db } from './firebase.js';
     import { verifyPassword, showToast } from './utils.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
 
     let messages = [];     // { role:'user'|'assistant', content }
     let currentHtml = '';  // 최신 결과물
@@ -408,6 +377,22 @@
       iframe.srcdoc = html;
     }
 
+    // 최신 assistant 메시지의 통짜 HTML만 남기고, 그 외 메시지(과거 응답·수정 시드)의
+    // ```html 코드블록은 자리표시자로 치환 — 대화가 길어져도 입력 토큰이 누적되지 않게 한다.
+    function trimHtmlFromHistory() {
+      let lastAssistantIdx = -1;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'assistant') { lastAssistantIdx = i; break; }
+      }
+      for (let i = 0; i < messages.length; i++) {
+        if (i === lastAssistantIdx) continue;
+        messages[i].content = messages[i].content.replace(
+          /```html\n[\s\S]*?\n```/g,
+          '```html\n(이전 버전 코드 생략 — 최신 버전만 유지)\n```'
+        );
+      }
+    }
+
     async function send() {
       if (busy) return;
       const text = input.value.trim();
@@ -422,7 +407,8 @@
       // 기존 작품 수정이면 첫 요청에 현재 코드를 컨텍스트로 함께 전달
       let apiContent = text;
       if (baseHtml && !seedConsumed) {
-        apiContent = `아래는 현재 작품의 전체 HTML 코드야. 이 코드를 기반으로 수정해줘.\n\n${baseHtml}\n\n[수정 요청]\n${text}`;
+        // ```html 펜스로 감싸 두면, 다음 턴부터 trimHistory가 이 시드 코드도 비울 수 있음
+        apiContent = `아래는 현재 작품의 전체 HTML 코드야. 이 코드를 기반으로 수정해줘.\n\n\`\`\`html\n${baseHtml}\n\`\`\`\n\n[수정 요청]\n${text}`;
         seedConsumed = true;
       }
       messages.push({ role: 'user', content: apiContent });
@@ -445,6 +431,9 @@
         // 히스토리에는 설명+코드 전체를 저장해 모델이 맥락을 유지하게 함
         const assistantContent = html ? `${reply}\n\n\`\`\`html\n${html}\n\`\`\`` : reply;
         messages.push({ role: 'assistant', content: assistantContent });
+        // 비용 절감: 과거 버전의 통짜 HTML은 히스토리에서 비우고 "최신 1개"만 유지
+        // (안 그러면 수정할수록 v1·v2·v3… 코드가 매 요청에 모두 재전송돼 입력 토큰이 급증)
+        trimHtmlFromHistory();
 
         let version = null;
         if (html) {

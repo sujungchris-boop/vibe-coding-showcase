@@ -4,23 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>관리자 · 바이브코딩</title>
+  <link rel="stylesheet" href="styles.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #23232f;
-      --border: #2e2e3e;
-      --accent: #7c6ff7;
-      --accent2: #5ee8d4;
-      --text: #e8e8f0;
-      --muted: #7a7a9a;
-      --danger: #f87171;
-      --success: #4ade80;
-      --radius: 12px;
-    }
-
     body {
       background: var(--bg);
       color: var(--text);
@@ -327,29 +312,6 @@
       font-size: 13px;
     }
 
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 12px 24px;
-      border-radius: 100px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      opacity: 0;
-      transition: opacity 0.2s, transform 0.2s;
-      z-index: 999;
-      white-space: nowrap;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    .toast.success { border-color: var(--success); color: var(--success); }
-    .toast.error { border-color: var(--danger); color: var(--danger); }
-
     /* Confirm dialog */
     .confirm-backdrop {
       display: none;
@@ -413,9 +375,6 @@
       cursor: pointer;
     }
 
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -590,16 +549,12 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, query, where,
+      collection, query, where,
       orderBy, getDocs, deleteDoc, doc, onSnapshot
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import firebaseConfig from './firebase-config.js';
-    import { buildSrcdoc, escapeAttr, escapeHtml, showToast } from './utils.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+    import { db } from './firebase.js';
+    import { buildSrcdoc, escapeAttr, escapeHtml, showToast, formatDate } from './utils.js';
 
     // ── Login ──
     const ADMIN_ID = 'admin';
@@ -646,8 +601,9 @@
     const TOKEN_RATES = {
       'gemini-2.5-flash': { in: 0.30, out: 2.50 },
       'gemini':           { in: 0.30, out: 2.50 },
-      'claude-haiku':     { in: 1.00, out: 5.00 },
-      'claude':           { in: 3.00, out: 15.00 },
+      'claude-haiku':     { in: 1.00, out: 5.00 },   // Haiku 4.5
+      'claude-sonnet':    { in: 3.00, out: 15.00 },  // Sonnet 4.6
+      'claude':           { in: 3.00, out: 15.00 },  // 기타 Claude 기본값
     };
     function rateFor(model) {
       const key = Object.keys(TOKEN_RATES).find(k => (model || '').includes(k));
@@ -761,7 +717,7 @@
         tr.innerHTML = `
           <td><strong>${escapeHtml(s.name)}</strong></td>
           <td class="td-muted">${workCount}개</td>
-          <td class="td-muted">—</td>
+          <td class="td-muted">${formatDate(s.createdAt, { fallback: '—' })}</td>
           <td>
             <button class="btn-delete" data-type="student" data-id="${s.id}" data-name="${escapeHtml(s.name)}">삭제</button>
           </td>
@@ -781,9 +737,7 @@
       tbody.innerHTML = '';
       allWorks.forEach(w => {
         const srcdoc = buildSrcdoc(w);
-        const date = w.createdAt?.toDate?.()
-          ? w.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric' })
-          : '—';
+        const date = formatDate(w.createdAt, { fallback: '—' });
         const version = w.version || 1;
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -815,9 +769,7 @@
       tbody.innerHTML = '';
       allComments.forEach(c => {
         const work = allWorks.find(w => w.id === c.workId);
-        const date = c.createdAt?.toDate?.()
-          ? c.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
-          : '—';
+        const date = formatDate(c.createdAt, { withTime: true, fallback: '—' });
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><strong>${escapeHtml(c.author || '익명')}</strong></td>

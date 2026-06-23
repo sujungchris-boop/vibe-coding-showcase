@@ -9,16 +9,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    /* index 전용 토큰 override (공통 토큰은 styles.css) — 더 어두운 배경 + 큰 radius + 디스플레이 폰트 */
     :root {
       --bg: #07070b;
       --surface: #121219;
       --surface2: #1a1a24;
       --border: #25252f;
-      --accent: #7c6ff7;
-      --accent2: #5ee8d4;
       --text: #f0f0f5;
       --muted: #7a7a92;
       --radius: 16px;
@@ -261,9 +259,6 @@
       letter-spacing: 0.08em; text-transform: uppercase;
     }
 
-    ::-webkit-scrollbar { width: 7px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -321,15 +316,11 @@
   <footer>모든 코드는 AI와의 협업으로 생성되었습니다 · Made with Vibe Coding</footer>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, query, orderBy, onSnapshot
+      collection, query, orderBy, onSnapshot
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import firebaseConfig from './firebase-config.js';
+    import { db } from './firebase.js';
     import { buildSrcdoc, escapeAttr, escapeHtml } from './utils.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
 
     let allWorks = [];
     let activeStudent = 'all';

@@ -1,0 +1,50 @@
+/* 공유 스타일 — 모든 페이지에서 <link rel="stylesheet" href="styles.css">로 로드.
+   (index/work/student/submit/admin/studio에 중복되던 리셋·디자인토큰·토스트·스크롤바를 한 곳으로 모음)
+   페이지별로 다른 토큰(예: index의 더 어두운 배경, 큰 radius)은 각 페이지 인라인 <style>의
+   :root에서 override한다 — 이 파일을 먼저 로드하므로 뒤따르는 인라인 규칙이 cascade에서 이긴다. */
+
+/* ── 리셋 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── 공통 디자인 토큰 (대부분의 페이지가 쓰는 #0f0f13 계열 팔레트) ── */
+:root {
+  --bg: #0f0f13;
+  --surface: #1a1a24;
+  --surface2: #23232f;
+  --border: #2e2e3e;
+  --accent: #7c6ff7;
+  --accent2: #5ee8d4;
+  --text: #e8e8f0;
+  --muted: #7a7a9a;
+  --danger: #f87171;
+  --success: #4ade80;
+  --radius: 12px;
+}
+
+/* ── 토스트 (페이지에 #toast 요소가 있을 때 utils.js showToast가 토글) ── */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 100px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: var(--success); color: var(--success); }
+.toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* ── 스크롤바 ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

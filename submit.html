@@ -4,23 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>결과물 제출 · 바이브코딩</title>
+  <link rel="stylesheet" href="styles.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #23232f;
-      --border: #2e2e3e;
-      --accent: #7c6ff7;
-      --accent2: #5ee8d4;
-      --text: #e8e8f0;
-      --muted: #7a7a9a;
-      --danger: #f87171;
-      --success: #4ade80;
-      --radius: 12px;
-    }
-
     body {
       background: var(--bg);
       color: var(--text);
@@ -588,29 +573,6 @@
     .btn-submit:active { transform: scale(0.99); }
     .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 12px 24px;
-      border-radius: 100px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      opacity: 0;
-      transition: opacity 0.2s, transform 0.2s;
-      z-index: 999;
-      white-space: nowrap;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    .toast.success { border-color: var(--success); color: var(--success); }
-    .toast.error { border-color: var(--danger); color: var(--danger); }
-
     .loading {
       text-align: center;
       padding: 20px;
@@ -795,20 +757,17 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, query, where,
+      collection, query, where,
       orderBy, getDocs, addDoc, updateDoc, deleteDoc,
       doc, getDoc, setDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import {
       getStorage, ref, uploadBytes, getDownloadURL
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-    import firebaseConfig from './firebase-config.js';
-    import { escapeHtml, nameToColor, hashPassword, verifyPassword, isHashed, showToast, buildSrcdoc } from './utils.js';
+    import { app, db } from './firebase.js';
+    import { escapeHtml, escapeAttr, nameToColor, hashPassword, verifyPassword, isHashed, showToast, buildSrcdoc, formatDate } from './utils.js';
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
     const storage = getStorage(app);
 
     let currentName = '';
@@ -860,13 +819,10 @@
 
     // Preview
     function updatePreview() {
-      let srcdoc;
-      if (currentMode === 'full') {
-        srcdoc = codeFull.value;
-      } else {
-        srcdoc = `<!DOCTYPE html><html><head><style>${codeCss.value}</style></head><body>${codeHtml.value}<script>${codeJs.value}<\/script></body></html>`;
-      }
-      previewIframe.srcdoc = srcdoc;
+      // split 모드는 buildSrcdoc로 조립 → </script> 이탈 방지 로직을 공유 (utils.js)
+      previewIframe.srcdoc = currentMode === 'full'
+        ? codeFull.value
+        : buildSrcdoc({ html: codeHtml.value, css: codeCss.value, js: codeJs.value });
     }
 
     document.getElementById('btn-refresh').addEventListener('click', updatePreview);
@@ -1060,7 +1016,7 @@
       } catch (e) { /* 무시 */ }
       if (photoURL) {
         avatar.textContent = '';
-        avatar.style.backgroundImage = `url('${photoURL}')`;
+        avatar.style.backgroundImage = `url('${escapeAttr(photoURL)}')`;
       } else {
         avatar.style.backgroundImage = '';
         avatar.style.background = nameToColor(currentName);
@@ -1107,11 +1063,8 @@
       studentWorks.forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-item';
-        const date = item.updatedAt?.toDate?.()
-          ? item.updatedAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
-          : (item.createdAt?.toDate?.()
-            ? item.createdAt.toDate().toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
-            : '');
+        const date = formatDate(item.updatedAt, { withTime: true })
+          || formatDate(item.createdAt, { withTime: true });
         const version = item.version || 1;
         div.innerHTML = `
           <div class="history-item-left">

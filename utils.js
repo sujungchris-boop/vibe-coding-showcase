@@ -15,7 +15,9 @@ export function escapeAttr(str) {
 // 없으면 레거시 방식(html/css/js 분리)으로 조합.
 export function buildSrcdoc(w) {
   if (w.fullHtml && w.fullHtml.trim()) return w.fullHtml;
-  return `<!DOCTYPE html><html><head><style>${w.css || ''}</style></head><body>${w.html || ''}<script>${w.js || ''}<\/script></body></html>`;
+  // 사용자 JS 안의 "</script>"가 srcdoc의 <script> 블록을 닫아버리지 않도록 이스케이프.
+  const js = String(w.js || '').replace(/<\/script>/gi, '<\\/script>');
+  return `<!DOCTYPE html><html><head><style>${w.css || ''}</style></head><body>${w.html || ''}<script>${js}<\/script></body></html>`;
 }
 
 // ── 이름 기반 아바타 색상 ──
@@ -45,6 +47,17 @@ export async function verifyPassword(input, stored) {
   if (!stored) return false;
   if (isHashed(stored)) return (await hashPassword(input)) === stored;
   return input === stored; // 레거시 평문 — 로그인 성공 시 호출부에서 해시로 업그레이드
+}
+
+// ── 날짜 포맷 (Firestore Timestamp → 'ko-KR' 표기) ──
+// 여러 페이지에 흩어져 있던 `ts?.toDate?.() ? ... : fallback` 패턴을 한 곳으로.
+export function formatDate(ts, { withTime = false, fallback = '' } = {}) {
+  const d = ts?.toDate?.();
+  if (!d) return fallback;
+  const opts = withTime
+    ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+    : { month: 'short', day: 'numeric' };
+  return d.toLocaleString('ko-KR', opts);
 }
 
 // ── Toast (페이지에 #toast 요소가 있을 때) ──

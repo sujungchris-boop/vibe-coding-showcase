@@ -25,8 +25,10 @@
 | `studio.html` | **AI 스튜디오.** 채팅으로 AI에게 통짜 HTML 생성 요청 → 라이브 프리뷰 → 반복 수정 → `게시하기`(이름+비번 인증)로 `works`에 `fullHtml` 저장 |
 | `admin.html` | 관리자. 학생/작품/댓글 관리 + 삭제 + 통계 + **AI 사용량(토큰/추정비용)** |
 | `api/generate.js` | **Vercel 서버리스 함수.** API 키를 숨기고 LLM 호출. 프로바이더 추상화(기본 Gemini, env로 Claude 교체) |
-| `utils.js` | **공통 모듈** — escapeHtml/escapeAttr/buildSrcdoc/nameToColor/해시/showToast |
-| `firebase-config.js` | Firebase 설정값 (프로젝트: covenant-high-school-vibe) |
+| `utils.js` | **공통 함수 모듈** — escapeHtml/escapeAttr/buildSrcdoc/nameToColor/formatDate/해시/showToast |
+| `styles.css` | **공유 CSS** — 리셋·공통 디자인토큰(`:root`)·토스트·스크롤바. 페이지별로 다른 토큰은 각 페이지 인라인 `<style>`의 `:root`에서 override (styles.css를 먼저 로드하므로 인라인이 이김) |
+| `firebase.js` | **Firebase 초기화** — `app`/`db`를 한 곳에서 생성해 export. 각 페이지는 `import { db } from './firebase.js'` (Firestore 함수는 CDN에서 직접 import, Storage는 submit만 `app`으로) |
+| `firebase-config.js` | Firebase 설정값 (프로젝트: covenant-high-school-vibe). `firebase.js`에서만 import |
 
 ## 데이터 모델
 - `works/{id}`: `studentName, title, description, fullHtml, html, css, js, version(숫자), createdAt, updatedAt`
@@ -46,7 +48,9 @@
 - **Vercel 환경변수** (Settings → Environment Variables, 깃/코드에 키 절대 금지):
   - `LLM_PROVIDER` (선택, 기본 `gemini`)
   - `GEMINI_API_KEY` + `GEMINI_MODEL`(기본 `gemini-2.5-flash`)
-  - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(기본 `claude-haiku-4-5-20251001`)
+  - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(기본 `claude-haiku-4-5` — 가성비. 품질 우선이면: `claude-sonnet-4-6`)
+- **레이트리밋**: `/api/generate`는 로그인 없이 호출 가능하므로 IP당 분당 호출 상한(인메모리, 기본 12/분)으로 비용 남용을 1차 방어. 강한 보장은 Vercel KV/Firestore 카운터로 확장.
+- **스튜디오 히스토리 트리밍**: studio.html이 매 턴 후 과거 버전의 통짜 HTML을 비우고 최신 1개만 유지 → 대화가 길어져도 입력 토큰이 누적되지 않음.
 - 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ reply, html, usage }` (`reply`=대화 텍스트, `html`=추출된 통짜 결과물, 없으면 `''`).
 - **`SYSTEM_PROMPT`**(api/generate.js 상단)는 "자유로운 범용 AI"로 두되 플랫폼 배경(쇼케이스/학생/어린이 교구)·스튜디오 흐름·게시 버튼 동작·코드 환경 제약(통짜 HTML·CDN만)을 알려준다. `extractHtml`이 ```html 코드블록만 결과물로 분리하고 나머지는 대화로 처리(티키타카).
   - ⭐ **플랫폼 기능을 바꾸면 `SYSTEM_PROMPT`도 같이 갱신한다** — AI가 화면/기능을 잘못 안내하지 않도록 (예: 게시 버튼·새 페이지·새 흐름 추가 시 프롬프트에 반영).
@@ -128,4 +132,4 @@ service firebase.storage {
   (p5.js·Three.js·Phaser·GSAP·Tone.js 등 `<script src="https://cdn...">` 포함 OK).
   안 되는 것: `npm install`·빌드가 필요한 다중 파일 프로젝트(Vite/Next 등). React는 CDN UMD+Babel standalone이면 가능.
   → **학생 가이드: "클로드에게 '하나의 HTML 파일로 만들어줘'라고 요청"하고 그 코드를 '전체 HTML' 모드에 붙여넣기.**
-- 공통 함수는 `utils.js`에 두고 각 페이지에서 import (중복 금지).
+- 공통 코드는 한 곳에서 공유 (중복 금지): 함수는 `utils.js`, 스타일은 `styles.css`(`<link>`), Firebase 초기화는 `firebase.js`(`import { db }`).

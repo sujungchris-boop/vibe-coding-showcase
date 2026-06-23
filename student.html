@@ -4,20 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>학생 프로필 · 바이브코딩</title>
+  <link rel="stylesheet" href="styles.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #23232f;
-      --border: #2e2e3e;
-      --accent: #7c6ff7;
-      --accent2: #5ee8d4;
-      --text: #e8e8f0;
-      --muted: #7a7a9a;
-      --radius: 14px;
-    }
+    /* student 전용 토큰 override (공통 토큰은 styles.css) */
+    :root { --radius: 14px; }
 
     body {
       background: var(--bg);
@@ -186,9 +176,6 @@
       font-size: 14px;
     }
 
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -219,16 +206,12 @@
   </section>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, query, where,
+      collection, query, where,
       orderBy, onSnapshot, doc, getDoc
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import firebaseConfig from './firebase-config.js';
+    import { db } from './firebase.js';
     import { buildSrcdoc, escapeAttr, escapeHtml, nameToColor } from './utils.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
 
     const params = new URLSearchParams(location.search);
     const studentName = params.get('name');
@@ -246,7 +229,7 @@
       getDoc(doc(db, 'students', studentName)).then(s => {
         if (s.exists() && s.data().photoURL) {
           avatar.textContent = '';
-          avatar.style.backgroundImage = `url('${s.data().photoURL}')`;
+          avatar.style.backgroundImage = `url('${escapeAttr(s.data().photoURL)}')`;
           avatar.style.backgroundSize = 'cover';
           avatar.style.backgroundPosition = 'center';
         }
