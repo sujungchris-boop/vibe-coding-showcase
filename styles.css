@@ -51,6 +51,10 @@
 .toast.success { border-color: var(--success); color: var(--success); }
 .toast.error { border-color: var(--danger); color: var(--danger); }
 
+/* ── 아기자기 마이크로 인터랙션 (버튼 누르면 톡 들어감) ── */
+button { transition: transform 0.12s ease; }
+button:active:not(:disabled) { transform: scale(0.94); }
+
 /* ── 스크롤바 (통통한 핑크) ── */
 ::-webkit-scrollbar { width: 12px; }
 ::-webkit-scrollbar-track { background: transparent; }

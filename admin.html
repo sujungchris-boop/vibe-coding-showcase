@@ -375,6 +375,37 @@
       cursor: pointer;
     }
 
+    /* 관리 액션 (학생 추가·비번 재설정·작품 수정) */
+    .manage-bar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+    .btn-add {
+      background: var(--accent); color: #fff; font-family: var(--display);
+      border: none; border-radius: 100px; padding: 9px 20px; font-size: 14px;
+      cursor: pointer; box-shadow: 0 6px 16px rgba(255,106,169,0.30);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-add:hover { transform: translateY(-2px); box-shadow: 0 9px 20px rgba(255,106,169,0.42); }
+    .btn-reset-pw, .btn-edit-work {
+      background: rgba(78,205,196,0.14); border: 1px solid rgba(78,205,196,0.45);
+      color: #2aa79a; font-size: 12px; font-weight: 700; padding: 5px 12px;
+      border-radius: 8px; cursor: pointer; white-space: nowrap; margin-right: 6px;
+      transition: background 0.15s;
+    }
+    .btn-reset-pw:hover, .btn-edit-work:hover { background: rgba(78,205,196,0.28); }
+    .form-field { margin-bottom: 14px; text-align: left; }
+    .form-field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+    .form-field input {
+      width: 100%; background: var(--surface2); border: 2px solid var(--border);
+      color: var(--text); font-size: 14px; padding: 10px 14px; border-radius: 12px;
+      outline: none; font-family: inherit;
+    }
+    .form-field input:focus { border-color: var(--accent); }
+    .btn-form-submit {
+      flex: 1; background: var(--accent); color: #fff; font-family: var(--display);
+      font-size: 14px; padding: 10px; border: none; border-radius: 10px; cursor: pointer;
+    }
+    .btn-form-submit:hover { opacity: 0.9; }
+    .btn-form-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
   </style>
 </head>
 <body>
@@ -473,6 +504,7 @@
 
       <!-- Students tab -->
       <div class="tab-panel active" id="tab-students">
+        <div class="manage-bar"><button class="btn-add" id="btn-add-student">+ 새 학생 추가</button></div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -546,15 +578,27 @@
     </div>
   </div>
 
+  <!-- Form modal: 학생 추가 / 비번 재설정 / 작품 수정 -->
+  <div class="confirm-backdrop" id="form-backdrop">
+    <div class="confirm-box">
+      <div class="confirm-title" id="form-title">입력</div>
+      <div id="form-fields"></div>
+      <div class="confirm-actions">
+        <button class="btn-confirm-cancel" id="form-cancel">취소</button>
+        <button class="btn-form-submit" id="form-submit">저장</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script type="module">
     import {
-      collection, query, where,
-      orderBy, getDocs, deleteDoc, doc, onSnapshot
+      collection, query, where, orderBy, getDocs,
+      deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { db } from './firebase.js';
-    import { buildSrcdoc, escapeAttr, escapeHtml, showToast, formatDate } from './utils.js';
+    import { buildSrcdoc, escapeAttr, escapeHtml, showToast, formatDate, hashPassword } from './utils.js';
 
     // ── Login ──
     const ADMIN_ID = 'admin';
@@ -719,12 +763,14 @@
           <td class="td-muted">${workCount}개</td>
           <td class="td-muted">${formatDate(s.createdAt, { fallback: '—' })}</td>
           <td>
+            <button class="btn-reset-pw" data-name="${escapeHtml(s.name)}">비번</button>
             <button class="btn-delete" data-type="student" data-id="${s.id}" data-name="${escapeHtml(s.name)}">삭제</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
       bindDeleteBtns();
+      bindRowActions();
     }
 
     // ── Works ──
@@ -751,12 +797,14 @@
           <td><span class="version-chip">v${version}</span></td>
           <td class="td-muted">${date}</td>
           <td>
+            <button class="btn-edit-work" data-id="${w.id}">수정</button>
             <button class="btn-delete" data-type="work" data-id="${w.id}" data-name="${escapeHtml(w.title || '작품')}">삭제</button>
           </td>
         `;
         tbody.appendChild(tr);
       });
       bindDeleteBtns();
+      bindRowActions();
     }
 
     // ── Comments ──
@@ -840,6 +888,90 @@
         showToast('삭제 실패. 다시 시도해주세요.', 'error');
       }
     });
+
+    // ── 학생 계정 / 작품 관리 (생성·비번 재설정·수정) ──
+    let formSubmitHandler = null;
+    function openForm({ title, fields, submitLabel, onSubmit }) {
+      document.getElementById('form-title').textContent = title;
+      document.getElementById('form-fields').innerHTML = fields.map(f =>
+        `<div class="form-field"><label>${escapeHtml(f.label)}</label>` +
+        `<input type="${f.type || 'text'}" id="ff-${f.key}" value="${escapeAttr(f.value || '')}" ` +
+        `placeholder="${escapeAttr(f.placeholder || '')}" maxlength="${f.maxlength || 100}"></div>`
+      ).join('');
+      document.getElementById('form-submit').textContent = submitLabel || '저장';
+      document.getElementById('form-backdrop').classList.add('open');
+      setTimeout(() => { const i = document.querySelector('#form-fields input'); if (i) i.focus(); }, 50);
+      formSubmitHandler = async () => {
+        const v = {};
+        fields.forEach(f => { v[f.key] = document.getElementById('ff-' + f.key).value; });
+        const btn = document.getElementById('form-submit');
+        btn.disabled = true;
+        try {
+          const err = await onSubmit(v);
+          if (err) { showToast(err, 'error'); return; }
+          document.getElementById('form-backdrop').classList.remove('open');
+        } catch (e) { console.error(e); showToast('처리 실패. 다시 시도해주세요.', 'error'); }
+        finally { btn.disabled = false; }
+      };
+    }
+    document.getElementById('form-submit').addEventListener('click', () => formSubmitHandler && formSubmitHandler());
+    document.getElementById('form-cancel').addEventListener('click', () => document.getElementById('form-backdrop').classList.remove('open'));
+    document.getElementById('form-backdrop').addEventListener('click', e => {
+      if (e.target.id === 'form-backdrop') document.getElementById('form-backdrop').classList.remove('open');
+    });
+
+    // 새 학생 추가
+    document.getElementById('btn-add-student').addEventListener('click', () => openForm({
+      title: '새 학생 추가',
+      fields: [
+        { key: 'name', label: '이름', placeholder: '홍길동', maxlength: 20 },
+        { key: 'pw', label: '초기 비밀번호', type: 'password', placeholder: '비밀번호', maxlength: 30 },
+      ],
+      submitLabel: '추가하기',
+      onSubmit: async ({ name, pw }) => {
+        name = name.trim();
+        if (!name) return '이름을 입력해주세요.';
+        if (!pw) return '비밀번호를 입력해주세요.';
+        if (allStudents.some(s => s.name === name)) return '이미 있는 이름이에요.';
+        await setDoc(doc(db, 'students', name), { name, password: await hashPassword(pw), createdAt: serverTimestamp() });
+        showToast(`"${name}" 학생을 추가했어요! 🎉`, 'success');
+      },
+    }));
+
+    // 행별 액션: 비번 재설정 / 작품 수정
+    function bindRowActions() {
+      document.querySelectorAll('.btn-reset-pw').forEach(btn => btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        openForm({
+          title: `"${name}" 비밀번호 재설정`,
+          fields: [{ key: 'pw', label: '새 비밀번호', type: 'password', placeholder: '새 비밀번호', maxlength: 30 }],
+          submitLabel: '재설정',
+          onSubmit: async ({ pw }) => {
+            if (!pw) return '새 비밀번호를 입력해주세요.';
+            await updateDoc(doc(db, 'students', name), { password: await hashPassword(pw) });
+            showToast(`"${name}" 비밀번호를 바꿨어요! ✓`, 'success');
+          },
+        });
+      }));
+      document.querySelectorAll('.btn-edit-work').forEach(btn => btn.addEventListener('click', () => {
+        const w = allWorks.find(x => x.id === btn.dataset.id);
+        if (!w) return;
+        openForm({
+          title: '작품 수정',
+          fields: [
+            { key: 'title', label: '제목', value: w.title || '', maxlength: 50 },
+            { key: 'description', label: '한 줄 설명', value: w.description || '', maxlength: 100 },
+          ],
+          submitLabel: '저장',
+          onSubmit: async ({ title, description }) => {
+            title = title.trim();
+            if (!title) return '제목을 입력해주세요.';
+            await updateDoc(doc(db, 'works', w.id), { title, description: description.trim() });
+            showToast('작품을 수정했어요! ✓', 'success');
+          },
+        });
+      }));
+    }
 
   </script>
 
