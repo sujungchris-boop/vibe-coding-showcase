@@ -411,14 +411,12 @@
     }
 
     function listenComments() {
-      const q = query(
-        collection(db, 'comments'),
-        where('workId', '==', workId),
-        orderBy('createdAt', 'asc')
-      );
+      // 복합 인덱스(workId+createdAt) 없이도 동작하도록 단일 조건만 쿼리하고 정렬은 클라에서.
+      const q = query(collection(db, 'comments'), where('workId', '==', workId));
       onSnapshot(q, snap => {
         const comments = [];
         snap.forEach(d => comments.push({ id: d.id, ...d.data() }));
+        comments.sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
         renderComments(comments);
       }, err => console.error(err));
     }

@@ -176,12 +176,23 @@
       font-size: 14px; font-weight: 600; padding: 11px 18px; border-radius: var(--radius); cursor: pointer;
     }
 
-    /* Mobile */
-    @media (max-width: 760px) {
-      body { overflow: auto; height: auto; }
+    /* 태블릿·폰: 채팅/미리보기 탭 토글 (한 번에 하나 전체폭) */
+    .studio-tabs { display: none; }
+    @media (max-width: 900px) {
       .studio { grid-template-columns: 1fr; }
-      .chat { border-right: none; border-bottom: 1px solid var(--border); height: 60vh; }
-      .preview-frame-wrap { min-height: 320px; }
+      .studio-tabs {
+        display: flex; gap: 8px; padding: 10px 14px; flex-shrink: 0;
+        border-bottom: 1px solid var(--border); background: var(--surface);
+      }
+      .studio-tab {
+        flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+        font-family: var(--display); font-size: 15px; padding: 10px; border-radius: 100px; cursor: pointer;
+      }
+      .studio-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .chat { border-right: none; display: flex; }
+      .preview { display: none; }
+      .studio.show-preview .chat { display: none; }
+      .studio.show-preview .preview { display: flex; }
     }
   </style>
 </head>
@@ -193,6 +204,12 @@
       <span class="topbar-title">AI 스튜디오 <span class="tag">BETA</span></span>
     </div>
     <button class="btn-ghost" id="btn-new">+ 새로 시작</button>
+  </div>
+
+  <!-- 태블릿·폰 전용: 채팅/미리보기 전환 -->
+  <div class="studio-tabs">
+    <button class="studio-tab active" data-pane="chat">💬 채팅</button>
+    <button class="studio-tab" data-pane="preview">👁 미리보기</button>
   </div>
 
   <div class="studio">
@@ -406,7 +423,17 @@
       placeholder.style.display = 'none';
       iframe.style.display = 'block';
       iframe.srcdoc = html;
+      // 태블릿·폰: 결과가 나오면 미리보기 탭으로 자동 전환 (학생이 바로 보게)
+      if (window.matchMedia('(max-width: 900px)').matches) showPane('preview');
     }
+
+    // 채팅 ↔ 미리보기 탭 토글 (작은 화면에서만 보임)
+    function showPane(pane) {
+      document.querySelector('.studio').classList.toggle('show-preview', pane === 'preview');
+      document.querySelectorAll('.studio-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === pane));
+    }
+    document.querySelectorAll('.studio-tab').forEach(t =>
+      t.addEventListener('click', () => showPane(t.dataset.pane)));
 
     // 최신 assistant 메시지의 통짜 HTML만 남기고, 그 외 메시지(과거 응답·수정 시드)의
     // ```html 코드블록은 자리표시자로 치환 — 대화가 길어져도 입력 토큰이 누적되지 않게 한다.

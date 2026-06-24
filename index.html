@@ -157,6 +157,14 @@
       display: grid; grid-template-columns: repeat(4, 1fr);
       grid-auto-rows: 220px; gap: 16px; grid-auto-flow: dense;
     }
+    /* 폰: 네비가 줄바꿈 깨지지 않게 — 브랜드는 윗줄, 버튼은 아랫줄 가운데 */
+    @media (max-width: 560px) {
+      .nav { padding: 14px 16px; flex-wrap: wrap; row-gap: 12px; }
+      .nav-brand { font-size: 11px; order: 1; flex-basis: 100%; }
+      .nav-actions { order: 2; width: 100%; justify-content: center; }
+      .btn-submit-link, .btn-studio-link { white-space: nowrap; }
+    }
+
     @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .grid { grid-template-columns: 1fr; grid-auto-rows: 240px; } }
 
