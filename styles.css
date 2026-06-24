@@ -1,24 +1,31 @@
-/* 공유 스타일 — 모든 페이지에서 <link rel="stylesheet" href="styles.css">로 로드.
-   (index/work/student/submit/admin/studio에 중복되던 리셋·디자인토큰·토스트·스크롤바를 한 곳으로 모음)
-   페이지별로 다른 토큰(예: index의 더 어두운 배경, 큰 radius)은 각 페이지 인라인 <style>의
-   :root에서 override한다 — 이 파일을 먼저 로드하므로 뒤따르는 인라인 규칙이 cascade에서 이긴다. */
+/* 공유 스타일 — 모든 페이지가 <link rel="stylesheet" href="styles.css">로 로드.
+   학생·키즈 컨셉에 맞춘 아기자기 파스텔 테마 + 둥근 모서리 + 귀여운 폰트(주아체 Jua).
+   페이지별로 다른 토큰은 각 페이지 인라인 <style>의 :root에서 override (이 파일을 먼저 로드). */
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&display=swap');
 
 /* ── 리셋 ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── 공통 디자인 토큰 (대부분의 페이지가 쓰는 #0f0f13 계열 팔레트) ── */
+/* ── 공통 디자인 토큰 (파스텔 라이트) ── */
 :root {
-  --bg: #0f0f13;
-  --surface: #1a1a24;
-  --surface2: #23232f;
-  --border: #2e2e3e;
-  --accent: #7c6ff7;
-  --accent2: #5ee8d4;
-  --text: #e8e8f0;
-  --muted: #7a7a9a;
-  --danger: #f87171;
-  --success: #4ade80;
-  --radius: 12px;
+  --bg: #fff5fb;        /* 보송한 블러시 크림 */
+  --surface: #ffffff;    /* 카드 흰색 */
+  --surface2: #fdeef6;   /* 연분홍 패널 */
+  --border: #ffdcec;     /* 연분홍 보더 */
+  --accent: #ff6aa9;     /* 딸기 핑크 */
+  --accent2: #4ecdc4;    /* 민트 */
+  --text: #5d4954;       /* 따뜻한 플럼 (부드러운 다크) */
+  --muted: #ab90a1;      /* 뮤트 모브 */
+  --danger: #ff6b6b;
+  --success: #2fbd84;
+  --radius: 18px;
+  --display: 'Jua', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── 주요 제목엔 귀여운 디스플레이 폰트(주아체) — 페이지 간 톤 통일 ── */
+.page-header h1, .topbar-title, .work-title, .profile-name, .login-title {
+  font-family: var(--display);
+  font-weight: 400;
 }
 
 /* ── 토스트 (페이지에 #toast 요소가 있을 때 utils.js showToast가 토글) ── */
@@ -28,13 +35,13 @@
   left: 50%;
   transform: translateX(-50%) translateY(20px);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 12px 24px;
+  font-family: var(--display);
+  font-size: 14px;
+  padding: 12px 26px;
   border-radius: 100px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow: 0 10px 28px rgba(255,106,169,0.25);
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s;
   z-index: 999;
@@ -44,7 +51,8 @@
 .toast.success { border-color: var(--success); color: var(--success); }
 .toast.error { border-color: var(--danger); color: var(--danger); }
 
-/* ── 스크롤바 ── */
-::-webkit-scrollbar { width: 6px; }
+/* ── 스크롤바 (통통한 핑크) ── */
+::-webkit-scrollbar { width: 12px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #ffcfe3; border-radius: 100px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }

@@ -8,49 +8,35 @@
   <title>AI로 만드는 KIDS 교구 프로젝트</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* index 전용 토큰 override (공통 토큰은 styles.css) — 더 어두운 배경 + 큰 radius + 디스플레이 폰트 */
-    :root {
-      --bg: #07070b;
-      --surface: #121219;
-      --surface2: #1a1a24;
-      --border: #25252f;
-      --text: #f0f0f5;
-      --muted: #7a7a92;
-      --radius: 16px;
-      --display: 'Space Grotesk', -apple-system, sans-serif;
-      --mono: 'Space Mono', monospace;
-    }
+    /* index 전용: 손글씨 라벨 폰트(Gaegu)만 매핑 — 색·배경은 styles.css 파스텔 토큰 상속 */
+    :root { --mono: 'Gaegu', cursive; }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
     }
 
-    /* Moving gradient backdrop + grain */
+    /* 보들보들 파스텔 블롭 배경 */
     .backdrop {
       position: fixed;
       inset: 0;
       z-index: -2;
       background:
-        radial-gradient(ellipse 60% 50% at 15% 0%, rgba(124,111,247,0.18), transparent 60%),
-        radial-gradient(ellipse 50% 50% at 85% 10%, rgba(94,232,212,0.12), transparent 55%),
-        radial-gradient(ellipse 70% 60% at 50% 100%, rgba(124,111,247,0.10), transparent 60%);
+        radial-gradient(ellipse 52% 46% at 12% 0%, rgba(255,106,169,0.20), transparent 60%),
+        radial-gradient(ellipse 46% 46% at 88% 8%, rgba(78,205,196,0.18), transparent 58%),
+        radial-gradient(ellipse 60% 55% at 50% 100%, rgba(179,157,219,0.18), transparent 60%);
       animation: drift 18s ease-in-out infinite alternate;
     }
     @keyframes drift {
       0%   { transform: translate3d(0,0,0) scale(1); }
-      100% { transform: translate3d(0,-3%,0) scale(1.08); }
+      100% { transform: translate3d(0,-2%,0) scale(1.06); }
     }
-    .grain {
-      position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.04;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    }
+    .grain { display: none; }
 
     /* Top nav */
     .nav {
@@ -64,21 +50,22 @@
     .nav-brand b { color: var(--text); font-weight: 700; }
     .btn-submit-link {
       display: inline-flex; align-items: center; gap: 7px;
-      background: var(--text); color: var(--bg);
-      font-size: 13px; font-weight: 700; padding: 9px 18px;
+      background: var(--accent); color: #fff; font-family: var(--display);
+      font-size: 14px; padding: 10px 20px;
       border-radius: 100px; text-decoration: none;
-      transition: transform 0.2s, background 0.2s;
+      box-shadow: 0 6px 16px rgba(255,106,169,0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
-    .btn-submit-link:hover { transform: translateY(-2px); background: var(--accent2); }
+    .btn-submit-link:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 10px 22px rgba(255,106,169,0.45); }
     .nav-actions { display: flex; align-items: center; gap: 10px; }
     .btn-studio-link {
       display: inline-flex; align-items: center; gap: 7px;
-      background: rgba(124,111,247,0.15); border: 1px solid rgba(124,111,247,0.4);
+      background: rgba(255,106,169,0.15); border: 1px solid rgba(255,106,169,0.4);
       color: var(--accent); font-size: 13px; font-weight: 700; padding: 8px 16px;
       border-radius: 100px; text-decoration: none;
       transition: transform 0.2s, background 0.2s;
     }
-    .btn-studio-link:hover { transform: translateY(-2px); background: rgba(124,111,247,0.28); }
+    .btn-studio-link:hover { transform: translateY(-2px); background: rgba(255,106,169,0.28); }
 
     /* Hero */
     .hero {
@@ -174,16 +161,17 @@
     @media (max-width: 560px) { .grid { grid-template-columns: 1fr; grid-auto-rows: 240px; } }
 
     .card {
-      position: relative; overflow: hidden; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--surface);
+      position: relative; overflow: hidden; border-radius: 22px;
+      border: 2px solid var(--border); background: var(--surface);
+      box-shadow: 0 8px 22px rgba(255,106,169,0.10);
       text-decoration: none; color: inherit; cursor: pointer;
       opacity: 0; transform: translateY(28px);
       transition: transform 0.4s cubic-bezier(.16,1,.3,1), border-color 0.3s, box-shadow 0.3s;
     }
     .card.in { opacity: 1; transform: translateY(0); }
     .card:hover {
-      border-color: var(--accent); box-shadow: 0 20px 60px rgba(124,111,247,0.25);
-      transform: translateY(-4px);
+      border-color: var(--accent); box-shadow: 0 22px 50px rgba(255,106,169,0.32);
+      transform: translateY(-6px) scale(1.01);
     }
     .card.span-big  { grid-column: span 2; grid-row: span 2; }
     .card.span-wide { grid-column: span 2; }
@@ -199,7 +187,7 @@
     }
     .card-veil {
       position: absolute; inset: 0;
-      background: linear-gradient(to top, rgba(7,7,11,0.95) 0%, rgba(7,7,11,0.75) 22%, rgba(7,7,11,0.1) 50%, transparent 70%);
+      background: linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.75) 22%, rgba(255,255,255,0.1) 50%, transparent 70%);
       transition: opacity 0.4s ease;
     }
     .card:hover .card-veil { opacity: 0.25; }
@@ -211,18 +199,17 @@
     }
     .card-version {
       position: absolute; top: 12px; right: 12px; z-index: 2;
-      font-family: var(--mono); font-size: 10px; font-weight: 700;
-      color: var(--accent2); border: 1px solid rgba(94,232,212,0.4);
-      padding: 3px 9px; border-radius: 100px; background: rgba(7,7,11,0.5);
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      color: var(--accent); border: 2px solid var(--border);
+      padding: 1px 11px; border-radius: 100px; background: #fff;
     }
     .card-body {
       position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
       padding: 18px 18px 16px;
     }
     .card-name {
-      font-family: var(--mono); font-size: 11px; color: var(--accent2);
-      letter-spacing: 0.06em; margin-bottom: 6px; display: inline-block;
-      text-decoration: none;
+      font-family: var(--mono); font-size: 15px; color: var(--accent); font-weight: 700;
+      margin-bottom: 2px; display: inline-block; text-decoration: none;
     }
     .card-name:hover { text-decoration: underline; }
     .card-title {
@@ -239,7 +226,7 @@
     .card-go {
       position: absolute; bottom: 18px; right: 18px; z-index: 2;
       width: 34px; height: 34px; border-radius: 50%;
-      border: 1px solid var(--border); background: rgba(7,7,11,0.5);
+      border: 1px solid var(--border); background: rgba(255,255,255,0.5);
       display: flex; align-items: center; justify-content: center;
       color: var(--text); font-size: 15px;
       opacity: 0; transform: translateX(-6px) rotate(-30deg);
