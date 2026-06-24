@@ -164,6 +164,13 @@
       outline: none; font-family: inherit;
     }
     .modal input:focus { border-color: var(--accent); }
+    .code-box {
+      width: 100%; height: 320px; resize: vertical; margin-bottom: 14px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      font-size: 12px; line-height: 1.5; padding: 12px; outline: none; white-space: pre;
+    }
+    .code-box:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
     .btn-primary {
       flex: 1; background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
@@ -242,6 +249,7 @@
         <div class="preview-actions">
           <button class="btn-mini" id="btn-refresh">↺ 새로고침</button>
           <button class="btn-mini" id="btn-fullscreen">⛶ 전체화면</button>
+          <button class="btn-mini" id="btn-code">&lt;/&gt; 코드</button>
           <button class="btn-publish" id="btn-publish" disabled>✦ 게시하기</button>
         </div>
       </div>
@@ -276,6 +284,20 @@
       <div class="modal-actions">
         <button class="btn-primary" id="btn-publish-confirm">게시하기</button>
         <button class="btn-cancel" id="btn-publish-cancel">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 코드 보기 모달 -->
+  <div class="modal-backdrop" id="code-modal">
+    <div class="modal" style="max-width:560px">
+      <h2>코드 보기</h2>
+      <p class="sub">지금 미리보기의 HTML 코드예요. 복사하거나 파일로 받을 수 있어요.</p>
+      <textarea id="code-box" class="code-box" readonly spellcheck="false"></textarea>
+      <div class="modal-actions">
+        <button class="btn-primary" id="btn-code-copy">📋 복사</button>
+        <button class="btn-primary" id="btn-code-download">⬇ 다운로드</button>
+        <button class="btn-cancel" id="btn-code-close">닫기</button>
       </div>
     </div>
   </div>
@@ -566,6 +588,34 @@
     });
     document.getElementById('btn-fullscreen').addEventListener('click', () => {
       if (iframe.requestFullscreen) iframe.requestFullscreen();
+    });
+
+    // ── 코드 보기 / 복사 / 다운로드 ──
+    const codeModal = document.getElementById('code-modal');
+    document.getElementById('btn-code').addEventListener('click', () => {
+      if (!currentHtml) { showToast('먼저 결과물을 만들어주세요.', 'error'); return; }
+      document.getElementById('code-box').value = currentHtml;
+      codeModal.classList.add('show');
+    });
+    document.getElementById('btn-code-close').addEventListener('click', () => codeModal.classList.remove('show'));
+    codeModal.addEventListener('click', e => { if (e.target === codeModal) codeModal.classList.remove('show'); });
+    document.getElementById('btn-code-copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(currentHtml);
+        showToast('코드를 복사했어요! 📋', 'success');
+      } catch (e) {
+        document.getElementById('code-box').select();
+        showToast('직접 선택해서 복사해주세요.', 'error');
+      }
+    });
+    document.getElementById('btn-code-download').addEventListener('click', () => {
+      const blob = new Blob([currentHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = '내작품.html';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      showToast('파일을 받았어요! ⬇', 'success');
     });
 
     // ── 게시 / 업데이트 ──
