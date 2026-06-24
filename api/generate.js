@@ -11,8 +11,9 @@
 //   CLAUDE_MODEL     (선택) 설정 시 그 모델로 고정. 비우면 라우터가 Haiku⇄Sonnet 자동 선택
 //
 // 요청  (POST):  { messages: [{ role:'user'|'assistant', content:string }, ...] }
-// 응답:          { reply, html, usage: { model, inputTokens, outputTokens, totalTokens } }
-//                reply=대화 텍스트, html=추출된 결과물(없으면 ''), usage=토큰
+// 응답:          SSE 스트림 (text/event-stream). 각 줄 `data: {...}`
+//                { delta:'...' } 생성 중 텍스트 조각(여러 번) · { done:true, usage:{...} } 완료 · { error:'...' } 실패
+//                결과물(html) 추출은 클라이언트가 utils.extractHtml로 처리한다 (스트림 완료 후).
 
 const SYSTEM_PROMPT = `너는 자유롭고 유능한 범용 AI 어시스턴트야. 무엇이든 편하게 대화해 — 질문에 답하고, 같이 브레인스토밍하고, 설명하고, 의견도 내고, 농담도 한다. 일반 챗봇처럼 막힘없이 자연스럽게 대화하면 돼. 아래 배경을 알고 있되, 정해진 역할이나 주제에 갇히지는 마.
 
@@ -33,33 +34,7 @@ const SYSTEM_PROMPT = `너는 자유롭고 유능한 범용 AI 어시스턴트�
 
 그 외엔 제약 없어. 기본은 한국어지만 사용자가 다른 언어를 쓰면 맞춘다.`;
 
-// 모델 출력에서 대화 텍스트(reply)와 HTML 결과물(html)을 분리.
-// 코드는 ```html 코드블록 안에 온다. 없으면 순수 대화로 본다.
-function extractHtml(text) {
-  const raw = (text || '').trim();
-  const fenceRe = /```(\w*)\s*\n([\s\S]*?)```/g;
-  const blocks = [];
-  let m;
-  while ((m = fenceRe.exec(raw)) !== null) {
-    blocks.push({ lang: (m[1] || '').toLowerCase(), code: m[2], full: m[0] });
-  }
-  // html로 표시됐거나 문서처럼 보이는 마지막 블록을 결과물로 채택
-  let chosen = null;
-  for (const b of blocks) {
-    if (b.lang === 'html' || /<!doctype html|<html[\s>]/i.test(b.code)) chosen = b;
-  }
-  if (!chosen && blocks.length === 1 && /<[a-z][\s\S]*>/i.test(blocks[0].code)) chosen = blocks[0];
-
-  // 코드블록이 전혀 없고 응답 전체가 HTML 문서면 그것을 결과물로
-  if (!chosen && /^<!doctype html|^<html[\s>]/i.test(raw)) {
-    return { reply: '', html: raw };
-  }
-  if (!chosen) return { reply: raw, html: '' };
-
-  const html = chosen.code.trim();
-  const reply = raw.replace(chosen.full, '').replace(/\n{3,}/g, '\n\n').trim();
-  return { reply, html };
-}
+// (extractHtml은 utils.js로 옮겨 클라이언트가 처리 — 스트리밍은 원문 텍스트를 그대로 흘려보낸다)
 
 async function callGemini(messages) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -115,7 +90,8 @@ function pickClaudeModel(messages) {
   return CLAUDE_HAIKU;
 }
 
-async function callClaude(messages, model) {
+// Claude를 스트리밍으로 호출. 텍스트 조각마다 onDelta(text) 콜백. 완료 시 usage 반환.
+async function callClaudeStream(messages, model, onDelta) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY가 설정되지 않았습니다.');
   model = model || process.env.CLAUDE_MODEL || 'claude-haiku-4-5';
@@ -131,6 +107,7 @@ async function callClaude(messages, model) {
       model,
       max_tokens: 16384,
       system: SYSTEM_PROMPT,
+      stream: true,
       messages: messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
     }),
   });
@@ -139,18 +116,31 @@ async function callClaude(messages, model) {
     const errText = await res.text();
     throw new Error(`Claude API 오류 (${res.status}): ${errText.slice(0, 300)}`);
   }
-  const data = await res.json();
-  const text = (data?.content || []).map(b => b.text || '').join('');
-  const u = data?.usage || {};
-  return {
-    text,
-    usage: {
-      model,
-      inputTokens: u.input_tokens || 0,
-      outputTokens: u.output_tokens || 0,
-      totalTokens: (u.input_tokens || 0) + (u.output_tokens || 0),
-    },
-  };
+
+  let inputTokens = 0, outputTokens = 0;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      let ev;
+      try { ev = JSON.parse(payload); } catch { continue; }
+      if (ev.type === 'message_start') inputTokens = (ev.message && ev.message.usage && ev.message.usage.input_tokens) || 0;
+      else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') onDelta(ev.delta.text || '');
+      else if (ev.type === 'message_delta') outputTokens = (ev.usage && ev.usage.output_tokens) || outputTokens;
+      else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'Claude 스트림 오류');
+    }
+  }
+  return { usage: { model, inputTokens, outputTokens, totalTokens: inputTokens + outputTokens } };
 }
 
 // ── 레이트리밋 (인메모리, 베스트에포트) ──
@@ -192,39 +182,44 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // 바디 파싱 (Vercel은 보통 req.body를 채워주지만 안전하게 양쪽 처리). SSE 전에 끝낸다.
+  let body = req.body;
   try {
-    // Vercel은 보통 req.body를 파싱해 주지만, 안전하게 양쪽 모두 처리
-    let body = req.body;
     if (typeof body === 'string') body = JSON.parse(body || '{}');
     if (!body) {
-      const raw = await new Promise(resolve => {
-        let d = ''; req.on('data', c => d += c); req.on('end', () => resolve(d));
-      });
+      const raw = await new Promise(resolve => { let d = ''; req.on('data', c => d += c); req.on('end', () => resolve(d)); });
       body = JSON.parse(raw || '{}');
     }
+  } catch { body = {}; }
 
-    const messages = Array.isArray(body.messages) ? body.messages : [];
-    if (messages.length === 0) {
-      res.status(400).json({ error: 'messages가 비어 있습니다.' });
-      return;
-    }
-    // 과도한 히스토리 방지 (간단한 가드)
-    if (messages.length > 40) {
-      res.status(400).json({ error: '대화가 너무 깁니다. 새로 시작해주세요.' });
-      return;
-    }
+  const messages = Array.isArray(body && body.messages) ? body.messages : [];
+  if (messages.length === 0) { res.status(400).json({ error: 'messages가 비어 있습니다.' }); return; }
+  if (messages.length > 40) { res.status(400).json({ error: '대화가 너무 깁니다. 새로 시작해주세요.' }); return; }
 
+  // ── 여기서부터 SSE 스트리밍 (위 가드들은 일반 JSON 상태코드로 응답) ──
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // 프록시 버퍼링 억제
+  if (res.flushHeaders) res.flushHeaders();
+  const sse = obj => res.write('data: ' + JSON.stringify(obj) + '\n\n');
+
+  try {
     const provider = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
-    const result = provider === 'claude' ? await callClaude(messages, pickClaudeModel(messages)) : await callGemini(messages);
-    const { reply, html } = extractHtml(result.text);
-
-    if (!reply && !html) {
-      res.status(502).json({ error: 'AI가 빈 응답을 반환했습니다. 다시 시도해주세요.' });
-      return;
+    let usage;
+    if (provider === 'claude') {
+      const model = pickClaudeModel(messages);
+      usage = (await callClaudeStream(messages, model, t => { if (t) sse({ delta: t }); })).usage;
+    } else {
+      // Gemini는 비스트리밍 호출 후 한 번에 흘려보냄 (클라 코드 통일)
+      const r = await callGemini(messages);
+      if (r.text) sse({ delta: r.text });
+      usage = r.usage;
     }
-    res.status(200).json({ reply, html, usage: result.usage });
+    sse({ done: true, usage });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: e.message || '서버 오류가 발생했습니다.' });
+    sse({ error: e.message || '서버 오류가 발생했습니다.' });
   }
+  res.end();
 };

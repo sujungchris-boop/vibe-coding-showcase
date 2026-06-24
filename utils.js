@@ -20,6 +20,28 @@ export function buildSrcdoc(w) {
   return `<!DOCTYPE html><html><head><style>${w.css || ''}</style></head><body>${w.html || ''}<script>${js}<\/script></body></html>`;
 }
 
+// ── 모델 출력에서 대화(reply)와 결과물(html) 분리 — AI 스튜디오가 스트림 완료 후 사용 ──
+// 코드는 ```html 코드블록 안에 온다. 없으면 순수 대화로 본다. (예전엔 서버 api/generate가 했음)
+export function extractHtml(text) {
+  const raw = (text || '').trim();
+  const fenceRe = /```(\w*)\s*\n([\s\S]*?)```/g;
+  const blocks = [];
+  let m;
+  while ((m = fenceRe.exec(raw)) !== null) {
+    blocks.push({ lang: (m[1] || '').toLowerCase(), code: m[2], full: m[0] });
+  }
+  let chosen = null;
+  for (const b of blocks) {
+    if (b.lang === 'html' || /<!doctype html|<html[\s>]/i.test(b.code)) chosen = b;
+  }
+  if (!chosen && blocks.length === 1 && /<[a-z][\s\S]*>/i.test(blocks[0].code)) chosen = blocks[0];
+  if (!chosen && /^<!doctype html|^<html[\s>]/i.test(raw)) return { reply: '', html: raw };
+  if (!chosen) return { reply: raw, html: '' };
+  const html = chosen.code.trim();
+  const reply = raw.replace(chosen.full, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { reply, html };
+}
+
 // ── 이름 기반 아바타 색상 ──
 export function nameToColor(name) {
   let hash = 0;

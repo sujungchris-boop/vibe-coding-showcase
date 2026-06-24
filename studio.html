@@ -270,7 +270,7 @@
       collection, addDoc, updateDoc, doc, getDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { db } from './firebase.js';
-    import { verifyPassword, showToast } from './utils.js';
+    import { verifyPassword, showToast, extractHtml } from './utils.js';
 
     let messages = [];     // { role:'user'|'assistant', content }
     let currentHtml = '';  // 최신 결과물
@@ -363,6 +363,37 @@
       chatLog.scrollTop = chatLog.scrollHeight;
     }
 
+    // 스트리밍용 AI 메시지 (빈 말풍선 생성 → 토큰 도착마다 채움)
+    function addLiveAiMsg() {
+      chatEmpty.style.display = 'none';
+      const el = document.createElement('div');
+      el.className = 'msg ai';
+      const span = document.createElement('span');
+      span.textContent = '…';
+      el.appendChild(span);
+      chatLog.appendChild(el);
+      chatLog.scrollTop = chatLog.scrollHeight;
+      return { el, span };
+    }
+    // 생성 중 표시: 코드블록 시작 전 대화 텍스트는 그대로, 코드가 시작되면 "코드 만드는 중"으로
+    function liveDisplay(raw) {
+      const i = raw.indexOf('```');
+      if (i === -1) return raw || '…';
+      const before = raw.slice(0, i).trim();
+      return (before ? before + '\n\n' : '') + '✨ 코드 만드는 중…';
+    }
+    // 스트림 완료: 버전 칩 + 최종 reply 텍스트로 마무리
+    function finalizeAiMsg(el, span, text, version) {
+      if (version) {
+        const chip = document.createElement('span');
+        chip.className = 'v';
+        chip.textContent = 'v' + version;
+        el.insertBefore(chip, span);
+      }
+      span.textContent = text;
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
     function addErrorMsg(text) {
       const el = document.createElement('div');
       el.className = 'msg ai error';
@@ -414,26 +445,51 @@
       messages.push({ role: 'user', content: apiContent });
       const loadingEl = addLoading();
 
+      let liveMsg = null;
       try {
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages }),
         });
-        const data = await res.json();
+        // 가드(429/400 등)는 스트림 시작 전 일반 JSON 상태코드로 옴
+        if (!res.ok) {
+          let msg = `오류 (${res.status})`;
+          try { const j = await res.json(); if (j.error) msg = j.error; } catch (_) {}
+          throw new Error(msg);
+        }
         loadingEl.remove();
+        liveMsg = addLiveAiMsg();
 
-        if (!res.ok) throw new Error(data.error || `오류 (${res.status})`);
+        // SSE 스트림 읽기 — data: {delta} 여러 번, data: {done,usage} 마지막
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let raw = '', buf = '', usage = null, errMsg = null;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let sep;
+          while ((sep = buf.indexOf('\n\n')) >= 0) {
+            const line = buf.slice(0, sep).trim();
+            buf = buf.slice(sep + 2);
+            if (!line.startsWith('data:')) continue;
+            let ev;
+            try { ev = JSON.parse(line.slice(5).trim()); } catch (_) { continue; }
+            if (ev.error) errMsg = ev.error;
+            else if (ev.delta) { raw += ev.delta; liveMsg.span.textContent = liveDisplay(raw); chatLog.scrollTop = chatLog.scrollHeight; }
+            else if (ev.done) usage = ev.usage;
+          }
+        }
+        if (errMsg) throw new Error(errMsg);
 
-        const html = data.html || '';
-        let reply = (data.reply || '').trim();
-
+        // 스트림 완료 → 대화/결과물 분리
+        const { reply: ex, html } = extractHtml(raw);
+        let reply = (ex || '').trim();
         // 히스토리에는 설명+코드 전체를 저장해 모델이 맥락을 유지하게 함
-        const assistantContent = html ? `${reply}\n\n\`\`\`html\n${html}\n\`\`\`` : reply;
+        const assistantContent = html ? `${reply}\n\n\`\`\`html\n${html}\n\`\`\`` : (reply || raw.trim());
         messages.push({ role: 'assistant', content: assistantContent });
-        // 비용 절감: 과거 버전의 통짜 HTML은 히스토리에서 비우고 "최신 1개"만 유지
-        // (안 그러면 수정할수록 v1·v2·v3… 코드가 매 요청에 모두 재전송돼 입력 토큰이 급증)
-        trimHtmlFromHistory();
+        trimHtmlFromHistory(); // 과거 버전 HTML은 비워 입력 토큰 누적 방지
 
         let version = null;
         if (html) {
@@ -445,12 +501,13 @@
         }
         if (!reply) reply = html
           ? `✨ 결과물을 v${version}(으)로 만들었어요. 오른쪽 미리보기를 확인해보세요!`
-          : '(빈 응답)';
-        addAiReply(reply, version);
+          : (raw.trim() || '(빈 응답)');
+        finalizeAiMsg(liveMsg.el, liveMsg.span, reply, version);
 
-        logUsage(data.usage);
+        logUsage(usage);
       } catch (e) {
         loadingEl.remove();
+        if (liveMsg) liveMsg.el.remove();
         console.error(e);
         addErrorMsg(e.message || '생성에 실패했어요. 잠시 후 다시 시도해주세요.');
         // 실패한 사용자 메시지는 히스토리에서 빼서 다음 요청이 꼬이지 않게
