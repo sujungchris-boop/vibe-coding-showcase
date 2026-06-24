@@ -8,7 +8,7 @@
 //   GEMINI_API_KEY   Gemini 사용 시 필수
 //   GEMINI_MODEL     기본 'gemini-2.5-flash'
 //   ANTHROPIC_API_KEY  Claude 사용 시 필수
-//   CLAUDE_MODEL     기본 'claude-haiku-4-5' (가성비). 더 높은 품질이 필요하면: 'claude-sonnet-4-6'
+//   CLAUDE_MODEL     (선택) 설정 시 그 모델로 고정. 비우면 라우터가 Haiku⇄Sonnet 자동 선택
 //
 // 요청  (POST):  { messages: [{ role:'user'|'assistant', content:string }, ...] }
 // 응답:          { reply, html, usage: { model, inputTokens, outputTokens, totalTokens } }
@@ -100,10 +100,25 @@ async function callGemini(messages) {
   };
 }
 
-async function callClaude(messages) {
+// ── Claude 모델 라우터 ──
+// 기본 Haiku(가성비). 무거운 작업(3D·물리·게임엔진·시뮬·셰이더·멀티플레이) 신호가 있거나
+// 현재 작업물(누적 HTML)이 크면 Sonnet으로 자동 승급. CLAUDE_MODEL env가 있으면 그 값으로 고정(라우팅 끔).
+const CLAUDE_HAIKU = 'claude-haiku-4-5';
+const CLAUDE_SONNET = 'claude-sonnet-4-6';
+function pickClaudeModel(messages) {
+  if (process.env.CLAUDE_MODEL) return process.env.CLAUDE_MODEL; // 수동 고정
+  const lastUser = [...messages].reverse().find(m => m.role === 'user');
+  const text = (lastUser && lastUser.content) || '';
+  const heavy = /three\.?js|webgl|3d|3차원|물리|physics|시뮬|simulat|셰이더|shader|멀티플레이|multiplayer|phaser|matter\.?js|cannon|rpg|플랫포머|platformer/i;
+  const totalLen = messages.reduce((n, m) => n + ((m.content && m.content.length) || 0), 0);
+  if (heavy.test(text) || totalLen > 14000) return CLAUDE_SONNET;
+  return CLAUDE_HAIKU;
+}
+
+async function callClaude(messages, model) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY가 설정되지 않았습니다.');
-  const model = process.env.CLAUDE_MODEL || 'claude-haiku-4-5'; // 가성비 기본값 (품질 우선이면: claude-sonnet-4-6)
+  model = model || process.env.CLAUDE_MODEL || 'claude-haiku-4-5';
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -200,7 +215,7 @@ module.exports = async (req, res) => {
     }
 
     const provider = (process.env.LLM_PROVIDER || 'gemini').toLowerCase();
-    const result = provider === 'claude' ? await callClaude(messages) : await callGemini(messages);
+    const result = provider === 'claude' ? await callClaude(messages, pickClaudeModel(messages)) : await callGemini(messages);
     const { reply, html } = extractHtml(result.text);
 
     if (!reply && !html) {

@@ -48,9 +48,10 @@
 - **Vercel 환경변수** (Settings → Environment Variables, 깃/코드에 키 절대 금지):
   - `LLM_PROVIDER` (선택, 기본 `gemini`)
   - `GEMINI_API_KEY` + `GEMINI_MODEL`(기본 `gemini-2.5-flash`)
-  - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(기본 `claude-haiku-4-5` — 가성비. 품질 우선이면: `claude-sonnet-4-6`)
+  - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(선택 — 설정 시 그 모델로 고정. **비우면 라우터가 Haiku⇄Sonnet 자동 선택**)
 - **레이트리밋**: `/api/generate`는 로그인 없이 호출 가능하므로 IP당 분당 호출 상한(인메모리, 기본 12/분)으로 비용 남용을 1차 방어. 강한 보장은 Vercel KV/Firestore 카운터로 확장.
 - **스튜디오 히스토리 트리밍**: studio.html이 매 턴 후 과거 버전의 통짜 HTML을 비우고 최신 1개만 유지 → 대화가 길어져도 입력 토큰이 누적되지 않음.
+- **모델 라우터** (`pickClaudeModel`, api/generate.js): Claude 사용 시 기본 Haiku, 무거운 작업 신호(3D·물리·게임엔진·시뮬·셰이더·멀티플레이) 또는 큰 작업물(누적 >14KB)이면 Sonnet으로 자동 승급 → 가성비 유지하며 복잡한 것만 고품질. `CLAUDE_MODEL` 설정 시 라우팅 끔(고정). admin "AI 사용량"에서 모델별 분포 확인 가능.
 - 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ reply, html, usage }` (`reply`=대화 텍스트, `html`=추출된 통짜 결과물, 없으면 `''`).
 - **`SYSTEM_PROMPT`**(api/generate.js 상단)는 "자유로운 범용 AI"로 두되 플랫폼 배경(쇼케이스/학생/어린이 교구)·스튜디오 흐름·게시 버튼 동작·코드 환경 제약(통짜 HTML·CDN만)을 알려준다. `extractHtml`이 ```html 코드블록만 결과물로 분리하고 나머지는 대화로 처리(티키타카).
   - ⭐ **플랫폼 기능을 바꾸면 `SYSTEM_PROMPT`도 같이 갱신한다** — AI가 화면/기능을 잘못 안내하지 않도록 (예: 게시 버튼·새 페이지·새 흐름 추가 시 프롬프트에 반영).
