@@ -819,7 +819,7 @@
 
     // Preview
     function updatePreview() {
-      // split 모드는 buildSrcdoc로 조립 → </script> 이탈 방지 로직을 공유 (utils.js)
+      // split 모드도 buildSrcdoc로 조립 (utils.js) — 사용자 JS의 닫는 태그 이탈 방지 공유
       previewIframe.srcdoc = currentMode === 'full'
         ? codeFull.value
         : buildSrcdoc({ html: codeHtml.value, css: codeCss.value, js: codeJs.value });
@@ -869,6 +869,7 @@
           await updateDoc(doc(db, 'students', name), { password: await hashPassword(pw) });
         }
         currentName = name;
+        sessionStorage.setItem('vibeUser', name);
         enterWorkspace();
       } catch (e) {
         console.error(e);
@@ -905,6 +906,7 @@
           createdAt: serverTimestamp(),
         });
         currentName = name;
+        sessionStorage.setItem('vibeUser', name);
         showToast('회원가입 완료! 환영합니다 🎉', 'success');
         enterWorkspace();
       } catch (e) {
@@ -931,6 +933,7 @@
     // 로그아웃
     document.getElementById('btn-logout').addEventListener('click', () => {
       currentName = '';
+      sessionStorage.removeItem('vibeUser');
       editingDocId = null;
       studentWorks = [];
       sectionHistory.style.display = 'none';
@@ -1233,6 +1236,10 @@
         btnSubmit.textContent = '제출하기';
       }
     });
+
+    // ── 로그인 유지 ── (sessionStorage: 새로고침해도 유지, 탭 닫으면 자동 해제)
+    const savedUser = sessionStorage.getItem('vibeUser');
+    if (savedUser) { currentName = savedUser; enterWorkspace(); }
 
   </script>
 
