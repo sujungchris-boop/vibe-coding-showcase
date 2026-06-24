@@ -220,6 +220,7 @@
       margin-bottom: 2px; display: inline-block; text-decoration: none;
     }
     .card-name:hover { text-decoration: underline; }
+    .card-likes { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 700; margin-left: 8px; }
     .card-title {
       font-family: var(--display); font-size: 19px; font-weight: 600;
       line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 4px;
@@ -406,6 +407,7 @@
         card.href = `work?id=${w.id}`;
         const versionLabel = w.version ? `v${w.version}` : (w.round || '');
         const idx = String(i + 1).padStart(2, '0');
+        const reTotal = Object.values(w.reactions || {}).reduce((a, b) => a + (b || 0), 0);
         card.innerHTML = `
           <div class="card-preview">
             <iframe srcdoc="${escapeAttr(buildSrcdoc(w))}" sandbox="allow-scripts" loading="lazy"></iframe>
@@ -415,6 +417,7 @@
           ${versionLabel ? `<span class="card-version">${escapeHtml(versionLabel)}</span>` : ''}
           <div class="card-body">
             <a class="card-name" href="student?name=${encodeURIComponent(w.studentName)}" onclick="event.stopPropagation()">↳ ${escapeHtml(w.studentName)}</a>
+            ${reTotal > 0 ? `<span class="card-likes">💕 ${reTotal}</span>` : ''}
             <div class="card-title">${escapeHtml(w.title || '(제목 없음)')}</div>
             <div class="card-desc">${escapeHtml(w.description || '')}</div>
           </div>

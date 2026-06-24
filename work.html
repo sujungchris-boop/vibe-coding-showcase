@@ -151,6 +151,20 @@
       line-height: 1.7;
     }
 
+    /* 반응(좋아요) 버튼 */
+    .reactions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .reaction {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--surface); border: 2px solid var(--border); color: var(--text);
+      font-family: var(--display); font-size: 16px; padding: 8px 18px; border-radius: 100px;
+      cursor: pointer; transition: transform 0.12s, border-color 0.15s, background 0.15s;
+    }
+    .reaction:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .reaction.on { background: rgba(255,106,169,0.12); border-color: var(--accent); }
+    .reaction .re-emoji { font-size: 18px; line-height: 1; }
+    .reaction .re-count { color: var(--muted); min-width: 8px; }
+    .reaction.on .re-count { color: var(--accent); }
+
     /* Comments */
     .comments-section {}
 
@@ -317,6 +331,7 @@
       <div class="work-info">
         <h1 class="work-title" id="work-title"></h1>
         <p class="work-desc" id="work-desc"></p>
+        <div class="reactions" id="reactions"></div>
       </div>
 
       <div class="comments-section">
@@ -343,8 +358,8 @@
 
   <script type="module">
     import {
-      doc, getDoc, collection,
-      query, where, orderBy, onSnapshot, addDoc, serverTimestamp
+      doc, getDoc, collection, query, where, orderBy, onSnapshot,
+      addDoc, updateDoc, increment, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { db } from './firebase.js';
     import { buildSrcdoc, escapeHtml, escapeAttr, nameToColor, showToast, formatDate } from './utils.js';
@@ -406,8 +421,41 @@
       // iframe
       document.getElementById('work-iframe').srcdoc = buildSrcdoc(w);
 
+      renderReactions(w);
+
       document.getElementById('main-loading').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
+    }
+
+    // ── 반응(좋아요) ── 기기별 1회 토글(localStorage) + Firestore 카운터 증감
+    const REACTIONS = [
+      { key: 'heart', emoji: '❤️' },
+      { key: 'star',  emoji: '⭐' },
+      { key: 'clap',  emoji: '👏' },
+    ];
+    function renderReactions(w) {
+      const counts = w.reactions || {};
+      const bar = document.getElementById('reactions');
+      bar.innerHTML = '';
+      REACTIONS.forEach(r => {
+        const lsKey = `reacted:${w.id}:${r.key}`;
+        const btn = document.createElement('button');
+        btn.className = 'reaction' + (localStorage.getItem(lsKey) === '1' ? ' on' : '');
+        btn.title = '응원하기';
+        btn.innerHTML = `<span class="re-emoji">${r.emoji}</span><span class="re-count">${counts[r.key] || 0}</span>`;
+        btn.addEventListener('click', async () => {
+          const wasOn = localStorage.getItem(lsKey) === '1';
+          const delta = wasOn ? -1 : 1;
+          const countEl = btn.querySelector('.re-count');
+          countEl.textContent = Math.max(0, (parseInt(countEl.textContent) || 0) + delta); // 낙관적 업데이트
+          btn.classList.toggle('on', !wasOn);
+          if (wasOn) localStorage.removeItem(lsKey); else localStorage.setItem(lsKey, '1');
+          try {
+            await updateDoc(doc(db, 'works', w.id), { [`reactions.${r.key}`]: increment(delta) });
+          } catch (e) { console.error(e); /* 실패해도 화면은 유지, 다음 로드 때 정정됨 */ }
+        });
+        bar.appendChild(btn);
+      });
     }
 
     function listenComments() {
