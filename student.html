@@ -196,6 +196,10 @@
         <div class="profile-stat-number" id="stat-versions">-</div>
         <div class="profile-stat-label">총 업데이트</div>
       </div>
+      <div>
+        <div class="profile-stat-number" id="stat-likes">-</div>
+        <div class="profile-stat-label">받은 응원 💕</div>
+      </div>
     </div>
   </div>
 
@@ -255,6 +259,8 @@
       document.getElementById('stat-works').textContent = works.length;
       const totalVersions = works.reduce((acc, w) => acc + ((w.version || 1) - 1), 0);
       document.getElementById('stat-versions').textContent = totalVersions;
+      const totalLikes = works.reduce((acc, w) => acc + Object.values(w.reactions || {}).reduce((a, b) => a + (b || 0), 0), 0);
+      document.getElementById('stat-likes').textContent = totalLikes;
 
       const grid = document.getElementById('grid');
       if (works.length === 0) {
