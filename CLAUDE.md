@@ -22,7 +22,7 @@
 | `work.html` | 작품 상세. 전체화면 미리보기 + 댓글(피드백). `?id=` |
 | `student.html` | 학생 프로필. 해당 학생의 작품 모음. `?name=` |
 | `submit.html` | 학생 제출 페이지. 비밀번호 인증 → 작품 추가/업데이트/삭제, 프로필 사진 |
-| `studio.html` | **AI 스튜디오.** 채팅으로 AI에게 통짜 HTML 생성 요청 → 라이브 프리뷰 → 반복 수정 → `게시하기`(이름+비번 인증)로 `works`에 `fullHtml` 저장 |
+| `studio.html` | **AI 스튜디오.** 채팅으로 AI에게 통짜 HTML 생성 요청 → 라이브 프리뷰 → 반복 수정 → `게시하기`(이름+비번 인증)로 `works`에 `fullHtml` 저장. **디자인씽킹 단계 띠**(공감→발상→만들기→개선)·SSE 스트리밍 응답·코드 보기/다운로드 포함 |
 | `admin.html` | 관리자. 학생/작품/댓글 관리 + 삭제 + 통계 + **AI 사용량(토큰/추정비용)** |
 | `api/generate.js` | **Vercel 서버리스 함수.** API 키를 숨기고 LLM 호출. 프로바이더 추상화(기본 Gemini, env로 Claude 교체) |
 | `utils.js` | **공통 함수 모듈** — escapeHtml/escapeAttr/buildSrcdoc/nameToColor/formatDate/해시/showToast |
@@ -55,6 +55,7 @@
 - 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ reply, html, usage }` (`reply`=대화 텍스트, `html`=추출된 통짜 결과물, 없으면 `''`).
 - **`SYSTEM_PROMPT`**(api/generate.js 상단)는 "자유로운 범용 AI"로 두되 플랫폼 배경(쇼케이스/학생/어린이 교구)·스튜디오 흐름·게시 버튼 동작·코드 환경 제약(통짜 HTML·CDN만)을 알려준다. `extractHtml`이 ```html 코드블록만 결과물로 분리하고 나머지는 대화로 처리(티키타카).
   - ⭐ **플랫폼 기능을 바꾸면 `SYSTEM_PROMPT`도 같이 갱신한다** — AI가 화면/기능을 잘못 안내하지 않도록 (예: 게시 버튼·새 페이지·새 흐름 추가 시 프롬프트에 반영).
+  - 🧠 **디자인씽킹 코치**: `SYSTEM_PROMPT`에 단계별 코칭 지침(공감=질문으로 대상 구체화, 발상=아이디어 제안, 만들기, 개선=어린이 관점 비평·우선순위). studio.html 채팅 위 **단계 띠** + 각 단계 시작문장 도우미(`DT_STARTERS`). 단계/코칭을 바꾸면 **둘 다 갱신**.
 - ⚠️ **로컬 `npx serve`는 함수를 안 돌린다.** 함수 검증은 `vercel dev` 또는 Vercel 배포 후. studio UI 자체는 로컬 확인 가능.
 
 ## 인증 (클라이언트 전용)
