@@ -113,7 +113,7 @@ async function callClaudeStream(messages, model, onDelta) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 16384,
+      max_tokens: 32768, // 스트리밍이라 큰 출력 가능 — 큰 단일 작품(게임 등) 생성 여유 (Sonnet/Haiku 최대 64K)
       system: SYSTEM_PROMPT,
       stream: true,
       messages: messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
