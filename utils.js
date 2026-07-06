@@ -36,7 +36,23 @@ export function extractHtml(text) {
   }
   if (!chosen && blocks.length === 1 && /<[a-z][\s\S]*>/i.test(blocks[0].code)) chosen = blocks[0];
   if (!chosen && /^<!doctype html|^<html[\s>]/i.test(raw)) return { reply: '', html: raw };
-  if (!chosen) return { reply: raw, html: '' };
+  if (!chosen) {
+    // 잘림 방어: 여는 ```만 있고 닫히지 않은 채 끝났다면(= 응답이 max_tokens에 걸려 중간에 끊김)
+    // 잘린 코드를 채팅에 흘려보내지 않고 경고로 치환 — 학생이 잘린 코드를 복사해 붙여넣는 사고 방지.
+    const fenceCount = (raw.match(/```/g) || []).length;
+    if (fenceCount % 2 === 1) {
+      const cut = raw.lastIndexOf('```');
+      if (raw.length - cut > 400) {
+        const before = raw.slice(0, cut).trim();
+        return {
+          reply: (before ? before + '\n\n' : '') +
+            '⚠️ 코드가 너무 길어서 중간에 잘렸어요! 이 코드는 사용하지 말고, "조금 더 간단하게 만들어줘" 또는 "핵심 기능만 먼저 만들어줘"처럼 범위를 줄여 다시 요청해주세요.',
+          html: '',
+        };
+      }
+    }
+    return { reply: raw, html: '' };
+  }
   const html = chosen.code.trim();
   const reply = raw.replace(chosen.full, '').replace(/\n{3,}/g, '\n\n').trim();
   return { reply, html };

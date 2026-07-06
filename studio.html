@@ -712,6 +712,9 @@
       const desc  = document.getElementById('pub-desc').value.trim();
       if (!title) { showToast('작품 제목을 입력해주세요.', 'error'); return; }
       if (!currentHtml) { showToast('먼저 결과물을 만들어주세요.', 'error'); return; }
+      // 잘림 방어: 결과물이 </html>로 끝나지 않으면(드물게 생성이 끊긴 경우) 게시 전 확인
+      if (!/<\/html>\s*$/i.test(currentHtml.trim()) &&
+          !confirm('⚠️ 코드가 </html>로 끝나지 않아요 — 중간에 잘린 코드일 수 있어요.\n"이어서 완성해줘"라고 요청해 완성본을 받는 걸 추천해요.\n\n그래도 이대로 게시할까요?')) return;
 
       const labelDefault = confirmBtn.textContent;
       confirmBtn.disabled = true; confirmBtn.textContent = '저장 중...';

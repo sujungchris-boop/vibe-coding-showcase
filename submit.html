@@ -1186,6 +1186,11 @@
       const isFull = currentMode === 'full';
       if (isFull) {
         if (!codeFull.value.trim()) { showToast('HTML 코드를 붙여넣어주세요.', 'error'); return; }
+        // 잘림 방어: AI 답변이 중간에 끊긴 코드를 그대로 붙여넣어 저장하는 사고 방지
+        if (!/<\/html>\s*$/i.test(codeFull.value.trim())) {
+          const ok = confirm('⚠️ 코드가 </html>로 끝나지 않아요 — 중간에 잘린 코드일 수 있어요.\nAI 답변이 길어서 끊겼다면, 스튜디오에서 범위를 줄여 다시 요청해 완성본을 받아주세요.\n\n그래도 이대로 저장할까요?');
+          if (!ok) return;
+        }
       } else if (!codeHtml.value.trim() && !codeCss.value.trim() && !codeJs.value.trim()) {
         showToast('코드를 하나 이상 입력해주세요.', 'error'); return;
       }
