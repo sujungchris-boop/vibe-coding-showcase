@@ -765,7 +765,7 @@
     import {
       getStorage, ref, uploadBytes, getDownloadURL
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-    import { app, db } from './firebase.js';
+    import { app, db, archiveWorkVersion } from './firebase.js';
     import { escapeHtml, escapeAttr, nameToColor, hashPassword, verifyPassword, isHashed, showToast, buildSrcdoc, formatDate } from './utils.js';
 
     const storage = getStorage(app);
@@ -1207,7 +1207,9 @@
 
       try {
         if (editingDocId) {
-          // 업데이트: 버전 증가
+          // 업데이트: 덮어쓰기 전 현재 버전을 보관(롤백용) → 버전 증가
+          const cur = await getDoc(doc(db, 'works', editingDocId));
+          if (cur.exists()) await archiveWorkVersion(editingDocId, cur.data());
           await updateDoc(doc(db, 'works', editingDocId), {
             ...data,
             version: editingVersion,

@@ -23,11 +23,11 @@
 | `student.html` | 학생 프로필. 해당 학생의 작품 모음. `?name=` |
 | `submit.html` | 학생 제출 페이지. 비밀번호 인증 → 작품 추가/업데이트/삭제, 프로필 사진 |
 | `studio.html` | **AI 스튜디오.** 채팅으로 AI에게 통짜 HTML 생성 요청 → 라이브 프리뷰 → 반복 수정 → `게시하기`(이름+비번 인증)로 `works`에 `fullHtml` 저장. **디자인씽킹 단계 띠**(공감→발상→만들기→개선)·SSE 스트리밍 응답·코드 보기/다운로드 포함 |
-| `admin.html` | 관리자. 학생/작품/댓글 관리 + 삭제 + 통계 + **AI 사용량(토큰/추정비용)** |
+| `admin.html` | 관리자. 학생/작품/댓글 관리 + 삭제 + 통계 + **AI 사용량(토큰/추정비용)** + **작품 버전 기록·롤백** |
 | `api/generate.js` | **Vercel 서버리스 함수.** API 키를 숨기고 LLM 호출. 프로바이더 추상화(기본 Gemini, env로 Claude 교체) |
 | `utils.js` | **공통 함수 모듈** — escapeHtml/escapeAttr/buildSrcdoc/nameToColor/formatDate/해시/showToast |
 | `styles.css` | **공유 CSS** — 리셋·공통 디자인토큰(`:root`)·토스트·스크롤바. 페이지별로 다른 토큰은 각 페이지 인라인 `<style>`의 `:root`에서 override (styles.css를 먼저 로드하므로 인라인이 이김) |
-| `firebase.js` | **Firebase 초기화** — `app`/`db`를 한 곳에서 생성해 export. 각 페이지는 `import { db } from './firebase.js'` (Firestore 함수는 CDN에서 직접 import, Storage는 submit만 `app`으로) |
+| `firebase.js` | **Firebase 초기화** — `app`/`db`를 한 곳에서 생성해 export. 각 페이지는 `import { db } from './firebase.js'` (Firestore 함수는 CDN에서 직접 import, Storage는 submit만 `app`으로). **`archiveWorkVersion`**(작품 버전 보관 헬퍼)도 여기서 export — submit/studio/admin 공용 |
 | `firebase-config.js` | Firebase 설정값 (프로젝트: covenant-high-school-vibe). `firebase.js`에서만 import |
 
 ## 데이터 모델
@@ -36,6 +36,9 @@
     한쪽 모드로 저장하면 반대편 필드는 빈 문자열로 둔다. 렌더는 `buildSrcdoc`(utils.js)이
     `fullHtml`이 있으면 그대로, 없으면 html/css/js 조합으로 처리 → **레거시 작품 100% 호환**.
   - 같은 작품을 **업데이트하면 version 증가** (v1 → v2 …). 새 작품은 별도 문서.
+  - **버전 히스토리**: 업데이트(제출·스튜디오 게시) 직전의 상태를 `works/{id}/versions/{버전번호}`에 자동 보관
+    (`archiveWorkVersion`, firebase.js). admin "버전" 버튼 → 목록 → **롤백**(선택 버전 내용을 새 버전 번호로 복원,
+    복원 전 현재 상태도 보관 → 롤백의 롤백 가능). 보관 실패는 저장을 막지 않음(경고만).
   - 레거시 `round` 필드("1차" 등)가 일부 남아있을 수 있음 — 신규는 version 사용.
 - `students/{이름}`: `name, password(SHA-256 해시), photoURL?, createdAt`
 - `comments/{id}`: `workId, author, content, createdAt`
@@ -86,6 +89,17 @@ service cloud.firestore {
         && request.resource.data.get('css', '').size() < 200000
         && request.resource.data.get('js', '').size() < 200000;
       allow delete: if true;
+
+      // 버전 히스토리 (롤백용 보관) — works 업데이트 직전 스냅샷
+      match /versions/{v} {
+        allow read: if true;
+        allow create: if request.resource.data.get('fullHtml', '').size() < 500000
+          && request.resource.data.get('html', '').size() < 200000
+          && request.resource.data.get('css', '').size() < 200000
+          && request.resource.data.get('js', '').size() < 200000;
+        allow update: if false;
+        allow delete: if true;
+      }
     }
 
     match /students/{id} {

@@ -384,13 +384,29 @@
       transition: transform 0.15s, box-shadow 0.15s;
     }
     .btn-add:hover { transform: translateY(-2px); box-shadow: 0 9px 20px rgba(255,106,169,0.42); }
-    .btn-reset-pw, .btn-edit-work {
+    .btn-reset-pw, .btn-edit-work, .btn-history {
       background: rgba(78,205,196,0.14); border: 1px solid rgba(78,205,196,0.45);
       color: #2aa79a; font-size: 12px; font-weight: 700; padding: 5px 12px;
       border-radius: 8px; cursor: pointer; white-space: nowrap; margin-right: 6px;
       transition: background 0.15s;
     }
-    .btn-reset-pw:hover, .btn-edit-work:hover { background: rgba(78,205,196,0.28); }
+    .btn-reset-pw:hover, .btn-edit-work:hover, .btn-history:hover { background: rgba(78,205,196,0.28); }
+    /* 버전 기록 모달 */
+    .ver-cur { font-size: 12px; color: var(--muted); margin-bottom: 10px; text-align: left; }
+    .ver-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; margin-bottom: 8px; text-align: left;
+    }
+    .ver-row .ver-meta { font-size: 12px; color: var(--muted); }
+    .ver-row strong { font-size: 14px; margin-right: 6px; }
+    .btn-rollback {
+      background: rgba(255,106,169,0.12); border: 1px solid rgba(255,106,169,0.45);
+      color: var(--accent); font-size: 12px; font-weight: 700; padding: 6px 12px;
+      border-radius: 8px; cursor: pointer; white-space: nowrap;
+    }
+    .btn-rollback:hover { background: rgba(255,106,169,0.24); }
+    .ver-empty { font-size: 13px; color: var(--muted); padding: 6px 2px 2px; text-align: left; line-height: 1.6; }
     .form-field { margin-bottom: 14px; text-align: left; }
     .form-field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
     .form-field input {
@@ -595,9 +611,9 @@
   <script type="module">
     import {
       collection, query, where, orderBy, getDocs,
-      deleteDoc, doc, onSnapshot, setDoc, updateDoc, serverTimestamp
+      deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { db } from './firebase.js';
+    import { db, archiveWorkVersion } from './firebase.js';
     import { buildSrcdoc, escapeAttr, escapeHtml, showToast, formatDate, hashPassword } from './utils.js';
 
     // ── Login ──
@@ -798,6 +814,7 @@
           <td class="td-muted">${date}</td>
           <td>
             <button class="btn-edit-work" data-id="${w.id}">수정</button>
+            <button class="btn-history" data-id="${w.id}">버전</button>
             <button class="btn-delete" data-type="work" data-id="${w.id}" data-name="${escapeHtml(w.title || '작품')}">삭제</button>
           </td>
         `;
@@ -899,6 +916,7 @@
         `placeholder="${escapeAttr(f.placeholder || '')}" maxlength="${f.maxlength || 100}"></div>`
       ).join('');
       document.getElementById('form-submit').textContent = submitLabel || '저장';
+      document.getElementById('form-submit').style.display = ''; // 버전 모달이 숨겼을 수 있으므로 복원
       document.getElementById('form-backdrop').classList.add('open');
       setTimeout(() => { const i = document.querySelector('#form-fields input'); if (i) i.focus(); }, 50);
       formSubmitHandler = async () => {
@@ -971,6 +989,78 @@
           },
         });
       }));
+      document.querySelectorAll('.btn-history').forEach(btn => btn.addEventListener('click', () => {
+        const w = allWorks.find(x => x.id === btn.dataset.id);
+        if (w) openVersionHistory(w);
+      }));
+    }
+
+    // ── 버전 기록 / 롤백 ──
+    // 작품 업데이트 시(제출·스튜디오) 이전 상태가 works/{id}/versions/{버전}에 자동 보관된다.
+    // 롤백 = 현재 상태를 먼저 보관한 뒤 선택한 버전의 내용을 새 버전 번호로 복원 → 롤백 자체도 되돌릴 수 있다.
+    async function openVersionHistory(w) {
+      document.getElementById('form-title').textContent = `"${w.title || '(제목 없음)'}" 버전 기록`;
+      document.getElementById('form-fields').innerHTML = '<div class="ver-empty">불러오는 중...</div>';
+      document.getElementById('form-submit').style.display = 'none'; // 목록 모달엔 저장 버튼 불필요
+      formSubmitHandler = null;
+      document.getElementById('form-backdrop').classList.add('open');
+
+      let versions = [];
+      try {
+        const snap = await getDocs(collection(db, 'works', w.id, 'versions'));
+        snap.forEach(d => versions.push(d.data()));
+        versions.sort((a, b) => (b.version || 0) - (a.version || 0));
+      } catch (e) {
+        console.error(e);
+        document.getElementById('form-fields').innerHTML =
+          '<div class="ver-empty">⚠️ 버전 기록을 읽을 수 없어요.<br>Firestore 규칙에 <b>works/{id}/versions</b> 블록을 게시해야 합니다. (CLAUDE.md 참고)</div>';
+        return;
+      }
+
+      const cur = `<div class="ver-cur">현재 버전: <b>v${w.version || 1}</b> · 롤백하면 선택한 버전의 내용이 새 버전으로 복원됩니다.</div>`;
+      if (versions.length === 0) {
+        document.getElementById('form-fields').innerHTML = cur +
+          '<div class="ver-empty">아직 보관된 버전이 없어요.<br>이 기능이 추가된 이후의 업데이트부터 자동으로 보관됩니다.</div>';
+        return;
+      }
+      document.getElementById('form-fields').innerHTML = cur + versions.map(v => {
+        const size = ((v.fullHtml || '').length + (v.html || '').length + (v.css || '').length + (v.js || '').length) / 1024;
+        const when = formatDate(v.archivedAt, { withTime: true, fallback: '—' });
+        return `<div class="ver-row">
+          <div><strong>v${v.version}</strong><span class="ver-meta">${when} · ${size.toFixed(1)}KB · ${escapeHtml(v.title || '')}</span></div>
+          <button class="btn-rollback" data-v="${v.version}">이 버전으로 롤백</button>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.btn-rollback').forEach(b => b.addEventListener('click', () => rollbackWork(w, +b.dataset.v, b)));
+    }
+
+    async function rollbackWork(w, verNum, btnEl) {
+      if (!confirm(`"${w.title}"을(를) v${verNum} 내용으로 롤백할까요?\n현재 버전(v${w.version || 1})도 기록에 보관되므로 다시 되돌릴 수 있어요.`)) return;
+      btnEl.disabled = true; btnEl.textContent = '롤백 중...';
+      try {
+        const vSnap = await getDoc(doc(db, 'works', w.id, 'versions', String(verNum)));
+        if (!vSnap.exists()) { showToast('해당 버전 기록을 찾을 수 없어요.', 'error'); return; }
+        const v = vSnap.data();
+        const curSnap = await getDoc(doc(db, 'works', w.id));
+        if (!curSnap.exists()) { showToast('작품 문서를 찾을 수 없어요.', 'error'); return; }
+        const cur = curSnap.data();
+        await archiveWorkVersion(w.id, cur); // 현재 상태 먼저 보관 → 롤백의 롤백 가능
+        const newVer = (cur.version || 1) + 1;
+        await updateDoc(doc(db, 'works', w.id), {
+          title: v.title || cur.title || '',
+          description: v.description ?? (cur.description || ''),
+          fullHtml: v.fullHtml || '', html: v.html || '', css: v.css || '', js: v.js || '',
+          version: newVer,
+          updatedAt: serverTimestamp(),
+        });
+        document.getElementById('form-backdrop').classList.remove('open');
+        showToast(`v${verNum} 내용으로 롤백 완료! (v${newVer}로 저장) ✓`, 'success');
+      } catch (e) {
+        console.error(e);
+        showToast('롤백 실패. 다시 시도해주세요.', 'error');
+      } finally {
+        btnEl.disabled = false; btnEl.textContent = '이 버전으로 롤백';
+      }
     }
 
   </script>

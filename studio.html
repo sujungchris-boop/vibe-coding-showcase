@@ -335,7 +335,7 @@
     import {
       collection, addDoc, updateDoc, doc, getDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { db } from './firebase.js';
+    import { db, archiveWorkVersion } from './firebase.js';
     import { verifyPassword, showToast, extractHtml } from './utils.js';
 
     let messages = [];     // { role:'user'|'assistant', content }
@@ -730,7 +730,9 @@
 
         let targetId;
         if (editId) {
-          // 기존 작품 업데이트 → 버전 증가
+          // 기존 작품 업데이트: 덮어쓰기 전 현재 버전을 보관(롤백용) → 버전 증가
+          const cur = await getDoc(doc(db, 'works', editId));
+          if (cur.exists()) await archiveWorkVersion(editId, cur.data());
           await updateDoc(doc(db, 'works', editId), {
             title, description: desc,
             fullHtml: currentHtml, html: '', css: '', js: '',
