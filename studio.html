@@ -273,6 +273,7 @@
     <div class="preview">
       <div class="preview-toolbar">
         <span class="label">미리보기</span>
+        <span id="size-chip" style="display:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;background:var(--surface2);border:1px solid var(--border);" title="작품 코드 크기 (저장 한도 500KB)"></span>
         <div class="preview-actions">
           <button class="btn-mini" id="btn-refresh">↺ 새로고침</button>
           <button class="btn-mini" id="btn-fullscreen">⛶ 전체화면</button>
@@ -336,7 +337,7 @@
       collection, addDoc, updateDoc, doc, getDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { db, archiveWorkVersion } from './firebase.js';
-    import { verifyPassword, showToast, extractHtml } from './utils.js';
+    import { verifyPassword, showToast, extractHtml, extractEdits, applyEdits } from './utils.js';
 
     let messages = [];     // { role:'user'|'assistant', content }
     let currentHtml = '';  // 최신 결과물
@@ -353,8 +354,7 @@
     const trustedName = ctx?.name || '';     // 로그인 검증된 신원 (있으면 재인증 불필요)
     let editId = ctx?.editId || null;         // 기존 작품 수정이면 그 문서 id
     let editVersion = ctx?.version || 0;      // 기존 작품의 현재 버전
-    let baseHtml = '';                        // 수정 시작점 코드 (첫 요청에 컨텍스트로 전달)
-    let seedConsumed = false;                 // baseHtml을 첫 요청에 이미 넣었는지
+    // (수정 시작점 코드는 currentHtml로 바로 들어가고, 매 요청 시 자동 주입된다)
 
     const chatLog   = document.getElementById('chat-log');
     const chatEmpty = document.getElementById('chat-empty');
@@ -407,7 +407,8 @@
       if (messages.length && !confirm('지금까지의 대화와 결과물이 사라져요. 새로 시작할까요?')) return;
       messages = []; currentHtml = ''; aiVersion = 0;
       // 수정 맥락 해제 → 이후엔 새 작품으로 저장 (로그인 신원은 유지)
-      baseHtml = ''; seedConsumed = false; editId = null; editVersion = 0;
+      editId = null; editVersion = 0;
+      document.getElementById('size-chip').style.display = 'none';
       document.querySelector('.topbar-title').innerHTML = 'AI 스튜디오 <span class="tag">BETA</span>';
       chatLog.innerHTML = '';
       chatLog.appendChild(chatEmpty);
@@ -469,7 +470,8 @@
       const i = raw.indexOf('```');
       if (i === -1) return raw || '…';
       const before = raw.slice(0, i).trim();
-      return (before ? before + '\n\n' : '') + '✨ 코드 만드는 중…';
+      const isEdit = raw.slice(i, i + 7) === '```edit';
+      return (before ? before + '\n\n' : '') + (isEdit ? '🔧 고칠 부분만 콕 집어 수정 중…' : '✨ 코드 만드는 중…');
     }
     // 스트림 완료: 버전 칩 + 최종 reply 텍스트로 마무리
     function finalizeAiMsg(el, span, text, version) {
@@ -495,6 +497,12 @@
       placeholder.style.display = 'none';
       iframe.style.display = 'block';
       iframe.srcdoc = html;
+      // 작품 크기 게이지 — 학생이 자기 작품 크기를 인지하게 (한도: 저장 500KB)
+      const kb = new Blob([html]).size / 1024;
+      const chip = document.getElementById('size-chip');
+      chip.style.display = 'inline-block';
+      chip.textContent = '📄 ' + (kb >= 1000 ? (kb / 1024).toFixed(2) + 'MB' : kb.toFixed(1) + 'KB');
+      chip.style.color = kb < 150 ? 'var(--success)' : kb < 300 ? '#e8890c' : 'var(--danger)';
       setStage('improve'); // 만들었으니 다음은 '개선' 단계로 자연스럽게 진행
       // 태블릿·폰: 결과가 나오면 미리보기 탭으로 자동 전환 (학생이 바로 보게)
       if (window.matchMedia('(max-width: 900px)').matches) showPane('preview');
@@ -508,19 +516,14 @@
     document.querySelectorAll('.studio-tab').forEach(t =>
       t.addEventListener('click', () => showPane(t.dataset.pane)));
 
-    // 최신 assistant 메시지의 통짜 HTML만 남기고, 그 외 메시지(과거 응답·수정 시드)의
-    // ```html 코드블록은 자리표시자로 치환 — 대화가 길어져도 입력 토큰이 누적되지 않게 한다.
+    // 저장 히스토리는 '대화'만 유지 — 코드블록이 섞여 들어왔으면 자리표시자로 치환.
+    // (현재 작품 코드는 매 요청 직전 최신본 1부만 주입되므로 히스토리에 코드를 쌓지 않는다
+    //  → 대화가 아무리 길어져도, 작품이 아무리 커져도 입력 토큰이 누적되지 않음)
     function trimHtmlFromHistory() {
-      let lastAssistantIdx = -1;
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'assistant') { lastAssistantIdx = i; break; }
-      }
-      for (let i = 0; i < messages.length; i++) {
-        if (i === lastAssistantIdx) continue;
-        messages[i].content = messages[i].content.replace(
-          /```html\n[\s\S]*?\n```/g,
-          '```html\n(이전 버전 코드 생략 — 최신 버전만 유지)\n```'
-        );
+      for (const m of messages) {
+        m.content = m.content
+          .replace(/```html\n[\s\S]*?\n```/g, '(코드 생략 — 최신 코드는 요청 시 자동 첨부됨)')
+          .replace(/```edit\s*\n[\s\S]*?```/g, '(수정 블록 생략 — 결과는 코드에 반영됨)');
       }
     }
 
@@ -535,14 +538,16 @@
       input.style.height = 'auto';
 
       addUserMsg(text);
-      // 기존 작품 수정이면 첫 요청에 현재 코드를 컨텍스트로 함께 전달
-      let apiContent = text;
-      if (baseHtml && !seedConsumed) {
-        // ```html 펜스로 감싸 두면, 다음 턴부터 trimHistory가 이 시드 코드도 비울 수 있음
-        apiContent = `아래는 현재 작품의 전체 HTML 코드야. 이 코드를 기반으로 수정해줘.\n\n\`\`\`html\n${baseHtml}\n\`\`\`\n\n[수정 요청]\n${text}`;
-        seedConsumed = true;
+      // 히스토리에는 '대화'만 저장한다. 현재 작품 코드는 전송 직전에 최신본 1부만 주입 —
+      // 모델이 항상 정확한 최신 코드를 보고 부분 수정(```edit)의 SEARCH 기준으로 삼는다.
+      messages.push({ role: 'user', content: text });
+      const payload = messages.map(m => ({ ...m }));
+      if (currentHtml) {
+        payload[payload.length - 1] = {
+          role: 'user',
+          content: `[현재 작품 전체 코드]\n\`\`\`html\n${currentHtml}\n\`\`\`\n\n[요청]\n${text}`,
+        };
       }
-      messages.push({ role: 'user', content: apiContent });
       const loadingEl = addLoading();
 
       let liveMsg = null;
@@ -550,7 +555,7 @@
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages }),
+          body: JSON.stringify({ messages: payload }),
         });
         // 가드(429/400 등)는 스트림 시작 전 일반 JSON 상태코드로 옴
         if (!res.ok) {
@@ -583,23 +588,44 @@
         }
         if (errMsg) throw new Error(errMsg);
 
-        // 스트림 완료 → 대화/결과물 분리
-        const { reply: ex, html } = extractHtml(raw);
-        let reply = (ex || '').trim();
-        // 히스토리에는 설명+코드 전체를 저장해 모델이 맥락을 유지하게 함
-        const assistantContent = html ? `${reply}\n\n\`\`\`html\n${html}\n\`\`\`` : (reply || raw.trim());
-        messages.push({ role: 'assistant', content: assistantContent });
-        trimHtmlFromHistory(); // 과거 버전 HTML은 비워 입력 토큰 누적 방지
-
-        let version = null;
-        if (html) {
-          currentHtml = html;
-          aiVersion++;
-          version = aiVersion;
-          renderPreview(currentHtml);
-          btnPublish.disabled = false;
+        // 스트림 완료 → ① 부분 수정(```edit) ② 통짜 HTML ③ 순수 대화 순으로 해석
+        let reply = '', version = null, assistantNote = '';
+        const edits = extractEdits(raw);
+        if (edits.truncated) {
+          reply = (edits.reply ? edits.reply + '\n\n' : '') +
+            '⚠️ 수정 내용이 중간에 잘렸어요. 반영하지 않았으니 "다시 시도해줘"라고 요청해주세요.';
+          assistantNote = '(수정 블록이 잘려 적용되지 않음)';
+        } else if (edits.blocks.length > 0 && currentHtml) {
+          const res = applyEdits(currentHtml, edits.blocks);
+          if (res.ok) {
+            currentHtml = res.html;
+            aiVersion++; version = aiVersion;
+            renderPreview(currentHtml);
+            btnPublish.disabled = false;
+            reply = (edits.reply ? edits.reply + '\n\n' : '') + `🔧 ${res.applied}군데를 고쳐서 바로 반영했어요!`;
+            assistantNote = `(부분 수정 ${res.applied}곳이 코드에 적용 완료됨)`;
+          } else {
+            reply = (edits.reply ? edits.reply + '\n\n' : '') +
+              `⚠️ 수정할 위치를 찾지 못해 반영하지 않았어요 (${res.applied}/${edits.blocks.length}곳만 일치). "다시 시도해줘"라고 해주세요.`;
+            assistantNote = '(SEARCH가 현재 코드와 일치하지 않아 적용 실패 — 다음번엔 [현재 작품 전체 코드]에서 그대로 복사해 SEARCH를 만들 것)';
+          }
+        } else {
+          const ex = extractHtml(raw);
+          reply = (ex.reply || '').trim();
+          if (ex.html) {
+            currentHtml = ex.html;
+            aiVersion++; version = aiVersion;
+            renderPreview(currentHtml);
+            btnPublish.disabled = false;
+            assistantNote = `(전체 코드 v${version} 생성 완료)`;
+          }
         }
-        if (!reply) reply = html
+        // 히스토리에는 대화만 저장(코드 미포함) — 다음 요청 때 최신 코드가 자동 주입되므로 중복 불필요
+        const stored = (reply || (version ? `결과물 v${version} 완성` : '(빈 응답)')) + (assistantNote ? '\n' + assistantNote : '');
+        messages.push({ role: 'assistant', content: stored });
+        trimHtmlFromHistory();
+
+        if (!reply) reply = version
           ? `✨ 결과물을 v${version}(으)로 만들었어요. 오른쪽 미리보기를 확인해보세요!`
           : (raw.trim() || '(빈 응답)');
         finalizeAiMsg(liveMsg.el, liveMsg.span, reply, version);
@@ -770,7 +796,6 @@
     // ── 워크스페이스 맥락 초기화 (기존 작품 불러오기) ──
     (function initContext() {
       if (ctx?.seedHtml) {
-        baseHtml = ctx.seedHtml;
         currentHtml = ctx.seedHtml;
         renderPreview(currentHtml);
         btnPublish.disabled = false;

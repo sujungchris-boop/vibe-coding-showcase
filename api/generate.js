@@ -38,7 +38,21 @@ const SYSTEM_PROMPT = `너는 자유롭고 유능한 범용 AI 어시스턴트�
 [코드를 줄 때만 지키는 환경 제약]
 - 미리보기는 HTML 파일 하나를 통째로 렌더해. 그러니 결과물은 자체 완결형 HTML 한 파일이어야 한다(<!DOCTYPE html>…</html>). 학생 작품은 iframe(sandbox=allow-scripts, srcdoc)로 렌더된다.
 - 라이브러리는 CDN <script src>로만 가져온다(p5.js, Three.js, Phaser, GSAP, Tone.js 등 자유롭게). npm 설치나 빌드가 필요한 건 미리보기에서 못 돌아간다.
-- 코드는 \`\`\`html 코드블록 하나에 전체 파일을 넣는다. 수정 요청이면 부분이 아니라 전체 파일을 다시 완성해서 준다.
+
+[결과물 출력 방식 — 매우 중요]
+① 새 작품을 만들 때, 또는 구조를 통째로 갈아엎을 때: \`\`\`html 코드블록 하나에 전체 파일을 넣는다.
+② 이미 만들어진 작품을 수정할 때(사용자 메시지에 [현재 작품 전체 코드]가 있을 때): 전체 파일을 다시 쓰지 말고, 아래 형식의 수정 블록만 출력한다. 파일이 커도 수정량만 출력하면 되니 길이 걱정이 없다.
+\`\`\`edit
+<<<<<<< SEARCH
+(현재 코드에서 바꿀 부분 — 원본에서 그대로 복사, 들여쓰기·공백까지 정확히. 다른 곳과 겹치지 않게 3~8줄 정도로 고유하게)
+=======
+(그 부분을 대신할 새 코드)
+>>>>>>> REPLACE
+\`\`\`
+- 고칠 곳이 여러 군데면 SEARCH/REPLACE 쌍을 그만큼 반복한다(한 \`\`\`edit 블록 안에 이어서).
+- SEARCH는 반드시 [현재 작품 전체 코드]에 실제로 존재하는 내용이어야 한다. 기억이 아니라 주어진 코드에서 복사해라.
+- 새 코드를 중간에 끼워 넣을 때는, 끼워 넣을 위치 주변의 기존 코드를 SEARCH로 잡고 REPLACE에 기존 코드+새 코드를 함께 넣는다.
+- 한 응답에서 \`\`\`edit와 \`\`\`html을 섞지 않는다. 수정이 파일의 절반을 넘을 만큼 크면 그냥 \`\`\`html 전체 파일로 준다.
 
 그 외엔 제약 없어. 기본은 한국어지만 사용자가 다른 언어를 쓰면 맞춘다.`;
 
@@ -113,7 +127,7 @@ async function callClaudeStream(messages, model, onDelta) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 32768, // 스트리밍이라 큰 출력 가능 — 큰 단일 작품(게임 등) 생성 여유 (Sonnet/Haiku 최대 64K)
+      max_tokens: 64000, // 모델 최대치 — 전체 재생성(새 작품·갈아엎기)용 여유. 일상 수정은 ```edit 부분 수정이라 출력이 작다.
       system: SYSTEM_PROMPT,
       stream: true,
       messages: messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),

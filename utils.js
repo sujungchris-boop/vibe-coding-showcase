@@ -58,6 +58,64 @@ export function extractHtml(text) {
   return { reply, html };
 }
 
+// ── 부분 수정(```edit) 프로토콜 — 큰 작품도 수정량만 출력받아 적용 ──
+// 모델 출력의 ```edit 블록에서 SEARCH/REPLACE 쌍들을 분리한다.
+// 반환: { blocks: [{search, replace}], reply, truncated }
+export function extractEdits(text) {
+  const raw = (text || '').trim();
+  const out = { blocks: [], reply: raw, truncated: false };
+  const fenceRe = /```edit\s*\n([\s\S]*?)```/g;
+  let m, found = false;
+  let reply = raw;
+  while ((m = fenceRe.exec(raw)) !== null) {
+    found = true;
+    reply = reply.replace(m[0], '');
+    const body = m[1];
+    const pairRe = /<{7} SEARCH\n([\s\S]*?)\n={7}\n([\s\S]*?)\n>{7} REPLACE/g;
+    let p;
+    while ((p = pairRe.exec(body)) !== null) out.blocks.push({ search: p[1], replace: p[2] });
+  }
+  // 잘림 방어: ```edit가 열렸는데 닫히지 않았거나, 블록 안 쌍이 완결되지 않은 경우
+  const opens = (raw.match(/```edit/g) || []).length;
+  const closes = found ? (raw.match(/```edit\s*\n[\s\S]*?```/g) || []).length : 0;
+  if (opens > closes) out.truncated = true;
+  if (found && !out.truncated) {
+    const pairsInText = (raw.match(/<{7} SEARCH/g) || []).length;
+    if (pairsInText > out.blocks.length) out.truncated = true; // 쌍이 중간에 끊김
+  }
+  out.reply = reply.replace(/\n{3,}/g, '\n\n').trim();
+  return out;
+}
+
+// SEARCH/REPLACE 쌍들을 html에 적용. 전부 성공해야 반영(all-or-nothing).
+// 매칭: ① 원문 그대로 → ② 공백 유연 매칭(들여쓰기 오차 허용).
+export function applyEdits(html, blocks) {
+  let result = html;
+  const failed = [];
+  for (const b of blocks) {
+    const s = b.search;
+    if (s && result.includes(s)) {
+      result = result.replace(s, b.replace);
+      continue;
+    }
+    // 공백 유연 매칭: 줄 안 공백 무시, 줄 구조는 유지
+    const flex = s.trim().split('\n').map(line =>
+      line.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+    ).join('\\s*\\n\\s*');
+    let matched = false;
+    if (flex) {
+      try {
+        const re = new RegExp(flex);
+        const hit = result.match(re);
+        if (hit) { result = result.replace(re, b.replace.replace(/\$/g, '$$$$')); matched = true; }
+      } catch (_) { /* 정규식 실패 → 실패 처리 */ }
+    }
+    if (!matched) failed.push(b);
+  }
+  if (failed.length > 0) return { ok: false, html, applied: blocks.length - failed.length, failedCount: failed.length };
+  return { ok: true, html: result, applied: blocks.length, failedCount: 0 };
+}
+
 // ── 이름 기반 아바타 색상 ──
 export function nameToColor(name) {
   let hash = 0;
