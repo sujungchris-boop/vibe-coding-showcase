@@ -148,7 +148,7 @@ async function callClaudeStream(messages, model, onDelta) {
     throw new Error(`Claude API 오류 (${res.status}): ${errText.slice(0, 300)}`);
   }
 
-  let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
+  let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0, stopReason = '';
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
@@ -172,12 +172,15 @@ async function callClaudeStream(messages, model, onDelta) {
         cacheWriteTokens = u.cache_creation_input_tokens || 0;
       }
       else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') onDelta(ev.delta.text || '');
-      else if (ev.type === 'message_delta') outputTokens = (ev.usage && ev.usage.output_tokens) || outputTokens;
+      else if (ev.type === 'message_delta') {
+        outputTokens = (ev.usage && ev.usage.output_tokens) || outputTokens;
+        stopReason = (ev.delta && ev.delta.stop_reason) || stopReason;
+      }
       else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'Claude 스트림 오류');
     }
   }
   return { usage: {
-    model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens,
+    model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, stopReason,
     totalTokens: inputTokens + cacheReadTokens + cacheWriteTokens + outputTokens,
   } };
 }

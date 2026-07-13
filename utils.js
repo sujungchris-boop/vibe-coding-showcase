@@ -34,16 +34,22 @@ export function extractHtml(text) {
   for (const b of blocks) {
     if (b.lang === 'html' || /<!doctype html|<html[\s>]/i.test(b.code)) chosen = b;
   }
-  if (!chosen && blocks.length === 1 && /<[a-z][\s\S]*>/i.test(blocks[0].code)) chosen = blocks[0];
+  if (!chosen && blocks.length === 1 && blocks[0].lang !== 'edit' && /<[a-z][\s\S]*>/i.test(blocks[0].code)) chosen = blocks[0];
   if (!chosen && /^<!doctype html|^<html[\s>]/i.test(raw)) return { reply: '', html: raw };
   if (!chosen) {
-    // 잘림 방어: 여는 ```만 있고 닫히지 않은 채 끝났다면(= 응답이 max_tokens에 걸려 중간에 끊김)
-    // 잘린 코드를 채팅에 흘려보내지 않고 경고로 치환 — 학생이 잘린 코드를 복사해 붙여넣는 사고 방지.
+    // 닫히지 않은 ``` 펜스 처리 — 두 경우를 구분한다:
+    // ① 내용이 </html>로 끝남 = 모델이 '닫는 펜스만' 빼먹은 완성본 (Haiku가 긴 출력에서 흔함) → 결과물로 인정
+    // ② 그 외 = 진짜 중간에 끊긴 응답 → 잘린 코드를 채팅에 노출하지 않고 경고로 치환
     const fenceCount = (raw.match(/```/g) || []).length;
     if (fenceCount % 2 === 1) {
       const cut = raw.lastIndexOf('```');
+      const nl = raw.indexOf('\n', cut);
+      const body = nl === -1 ? '' : raw.slice(nl + 1).trim();
+      const before = raw.slice(0, cut).trim();
+      if (/<\/html>\s*$/i.test(body)) {
+        return { reply: before, html: body };
+      }
       if (raw.length - cut > 400) {
-        const before = raw.slice(0, cut).trim();
         return {
           reply: (before ? before + '\n\n' : '') +
             '⚠️ 코드가 너무 길어서 중간에 잘렸어요! 이 코드는 사용하지 말고, "조금 더 간단하게 만들어줘" 또는 "핵심 기능만 먼저 만들어줘"처럼 범위를 줄여 다시 요청해주세요.',
@@ -64,24 +70,47 @@ export function extractHtml(text) {
 export function extractEdits(text) {
   const raw = (text || '').trim();
   const out = { blocks: [], reply: raw, truncated: false };
-  const fenceRe = /```edit\s*\n([\s\S]*?)```/g;
-  let m, found = false;
+  if (!raw.includes('```edit')) return out;
+  // 구분자는 유연하게 허용 — 모델이 <<<<<<<<(8개), '======= ' (뒤 공백) 등으로 살짝 다르게 쓰는 일이 흔하다.
+  const PAIR = /<{4,} *SEARCH *\n([\s\S]*?)\n={4,} *\n([\s\S]*?)\n>{4,} *REPLACE/g;
   let reply = raw;
+
+  // ① 닫힌 ```edit 블록들
+  const fenceRe = /```edit[^\n]*\n([\s\S]*?)```/g;
+  let m, lastEnd = 0;
   while ((m = fenceRe.exec(raw)) !== null) {
-    found = true;
     reply = reply.replace(m[0], '');
-    const body = m[1];
-    const pairRe = /<{7} SEARCH\n([\s\S]*?)\n={7}\n([\s\S]*?)\n>{7} REPLACE/g;
+    PAIR.lastIndex = 0;
     let p;
-    while ((p = pairRe.exec(body)) !== null) out.blocks.push({ search: p[1], replace: p[2] });
+    while ((p = PAIR.exec(m[1])) !== null) out.blocks.push({ search: p[1], replace: p[2] });
+    lastEnd = m.index + m[0].length;
   }
-  // 잘림 방어: ```edit가 열렸는데 닫히지 않았거나, 블록 안 쌍이 완결되지 않은 경우
-  const opens = (raw.match(/```edit/g) || []).length;
-  const closes = found ? (raw.match(/```edit\s*\n[\s\S]*?```/g) || []).length : 0;
-  if (opens > closes) out.truncated = true;
-  if (found && !out.truncated) {
-    const pairsInText = (raw.match(/<{7} SEARCH/g) || []).length;
-    if (pairsInText > out.blocks.length) out.truncated = true; // 쌍이 중간에 끊김
+
+  // ② 닫히지 않은 마지막 ```edit 펜스 — 내용이 REPLACE로 완결됐으면 '닫는 펜스만 누락'이므로 구제,
+  //    아니면 진짜 잘린 응답으로 판정.
+  const tailIdx = raw.indexOf('```edit', lastEnd);
+  if (tailIdx !== -1) {
+    const tailFull = raw.slice(tailIdx);
+    const nl = tailFull.indexOf('\n');
+    const tail = nl === -1 ? '' : tailFull.slice(nl + 1);
+    const complete = /(^|\n)>{4,} *REPLACE$/.test(tail.trimEnd());
+    PAIR.lastIndex = 0;
+    const tailBlocks = [];
+    let p;
+    while ((p = PAIR.exec(tail)) !== null) tailBlocks.push({ search: p[1], replace: p[2] });
+    if (complete && tailBlocks.length > 0) {
+      out.blocks.push(...tailBlocks);
+      reply = reply.replace(tailFull, '');
+    } else {
+      out.truncated = true;
+      reply = reply.replace(tailFull, '');
+    }
+  }
+
+  // ③ 쌍 개수 대조 — 닫힌 블록 안에서 쌍이 중간에 끊겼거나 형식이 크게 어긋난 경우
+  if (!out.truncated) {
+    const pairOpens = (raw.match(/<{4,} *SEARCH/g) || []).length;
+    if (pairOpens > out.blocks.length) out.truncated = true;
   }
   out.reply = reply.replace(/\n{3,}/g, '\n\n').trim();
   return out;

@@ -648,6 +648,7 @@
           outputTokens: usage.outputTokens || 0,
           cacheReadTokens: usage.cacheReadTokens || 0,   // 캐시 히트분 (기본 단가의 10%)
           cacheWriteTokens: usage.cacheWriteTokens || 0, // 캐시 기록분 (기본 단가의 125%)
+          stopReason: usage.stopReason || '',            // end_turn=정상완료 / max_tokens=한도 잘림
           totalTokens: usage.totalTokens || 0,
           createdAt: serverTimestamp(),
         });
