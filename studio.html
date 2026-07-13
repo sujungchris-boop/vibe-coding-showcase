@@ -516,16 +516,8 @@
     document.querySelectorAll('.studio-tab').forEach(t =>
       t.addEventListener('click', () => showPane(t.dataset.pane)));
 
-    // 저장 히스토리는 '대화'만 유지 — 코드블록이 섞여 들어왔으면 자리표시자로 치환.
-    // (현재 작품 코드는 매 요청 직전 최신본 1부만 주입되므로 히스토리에 코드를 쌓지 않는다
-    //  → 대화가 아무리 길어져도, 작품이 아무리 커져도 입력 토큰이 누적되지 않음)
-    function trimHtmlFromHistory() {
-      for (const m of messages) {
-        m.content = m.content
-          .replace(/```html\n[\s\S]*?\n```/g, '(코드 생략 — 최신 코드는 요청 시 자동 첨부됨)')
-          .replace(/```edit\s*\n[\s\S]*?```/g, '(수정 블록 생략 — 결과는 코드에 반영됨)');
-      }
-    }
+    // (히스토리는 send()에서 append-only로 관리 — 원문을 그대로 쌓아 서버 프롬프트 캐시가
+    //  프리픽스를 매 턴 적중시킨다. 코드 전문은 한 번만 실리고, 길어지면 컴팩션으로 접는다.)
 
     async function send() {
       if (busy) return;
@@ -538,15 +530,16 @@
       input.style.height = 'auto';
 
       addUserMsg(text);
-      // 히스토리에는 '대화'만 저장한다. 현재 작품 코드는 전송 직전에 최신본 1부만 주입 —
-      // 모델이 항상 정확한 최신 코드를 보고 부분 수정(```edit)의 SEARCH 기준으로 삼는다.
-      messages.push({ role: 'user', content: text });
-      const payload = messages.map(m => ({ ...m }));
-      if (currentHtml) {
-        payload[payload.length - 1] = {
-          role: 'user',
-          content: `[현재 작품 전체 코드]\n\`\`\`html\n${currentHtml}\n\`\`\`\n\n[요청]\n${text}`,
-        };
+      // 히스토리는 append-only로 그대로 쌓는다 — 서버의 프롬프트 캐싱이 반복 프리픽스를 90% 할인 처리.
+      // 작품 코드 전문은 '한 번만' 히스토리에 실린다(첫 수정 시작 시 주입, 또는 모델의 전체 생성 응답).
+      // 이후 수정 턴은 텍스트+```edit만 쌓이고, 모델은 "원본+적용된 수정들"로 최신 상태를 추적한다.
+      const histChars = messages.reduce((n, m) => n + m.content.length, 0);
+      if (messages.length >= 32 || histChars > 220000) messages = []; // 컴팩션(서버 40개 제한·컨텍스트 보호) → 아래서 최신 코드 재주입
+      const hasCode = messages.some(m => m.content.includes('```html'));
+      if (currentHtml && !hasCode) {
+        messages.push({ role: 'user', content: `[현재 작품 전체 코드]\n\`\`\`html\n${currentHtml}\n\`\`\`\n\n[요청]\n${text}` });
+      } else {
+        messages.push({ role: 'user', content: text });
       }
       const loadingEl = addLoading();
 
@@ -555,7 +548,7 @@
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: payload }),
+          body: JSON.stringify({ messages }),
         });
         // 가드(429/400 등)는 스트림 시작 전 일반 JSON 상태코드로 옴
         if (!res.ok) {
@@ -589,12 +582,14 @@
         if (errMsg) throw new Error(errMsg);
 
         // 스트림 완료 → ① 부분 수정(```edit) ② 통짜 HTML ③ 순수 대화 순으로 해석
-        let reply = '', version = null, assistantNote = '';
+        let reply = '', version = null, keepInHistory = true;
         const edits = extractEdits(raw);
         if (edits.truncated) {
           reply = (edits.reply ? edits.reply + '\n\n' : '') +
             '⚠️ 수정 내용이 중간에 잘렸어요. 반영하지 않았으니 "다시 시도해줘"라고 요청해주세요.';
-          assistantNote = '(수정 블록이 잘려 적용되지 않음)';
+          // 이 턴은 히스토리에서 제거 — 잘린 블록이 남으면 모델이 적용된 걸로 착각하고,
+          // user 메시지만 남으면 다음 턴에 user가 연속돼 API가 거부한다(역할 교대 필수).
+          messages.pop(); keepInHistory = false;
         } else if (edits.blocks.length > 0 && currentHtml) {
           const res = applyEdits(currentHtml, edits.blocks);
           if (res.ok) {
@@ -603,11 +598,11 @@
             renderPreview(currentHtml);
             btnPublish.disabled = false;
             reply = (edits.reply ? edits.reply + '\n\n' : '') + `🔧 ${res.applied}군데를 고쳐서 바로 반영했어요!`;
-            assistantNote = `(부분 수정 ${res.applied}곳이 코드에 적용 완료됨)`;
           } else {
+            // SEARCH 불일치 = 모델의 상태 추적이 어긋남 → 히스토리를 비워 다음 턴에 최신 코드로 재기준.
             reply = (edits.reply ? edits.reply + '\n\n' : '') +
-              `⚠️ 수정할 위치를 찾지 못해 반영하지 않았어요 (${res.applied}/${edits.blocks.length}곳만 일치). "다시 시도해줘"라고 해주세요.`;
-            assistantNote = '(SEARCH가 현재 코드와 일치하지 않아 적용 실패 — 다음번엔 [현재 작품 전체 코드]에서 그대로 복사해 SEARCH를 만들 것)';
+              `⚠️ 수정 위치가 어긋나 반영하지 않았어요 (${res.applied}/${edits.blocks.length}곳만 일치). "다시 해줘"라고 하면 최신 코드 기준으로 다시 맞춰서 시도해요.`;
+            messages = []; keepInHistory = false;
           }
         } else {
           const ex = extractHtml(raw);
@@ -617,13 +612,11 @@
             aiVersion++; version = aiVersion;
             renderPreview(currentHtml);
             btnPublish.disabled = false;
-            assistantNote = `(전체 코드 v${version} 생성 완료)`;
           }
         }
-        // 히스토리에는 대화만 저장(코드 미포함) — 다음 요청 때 최신 코드가 자동 주입되므로 중복 불필요
-        const stored = (reply || (version ? `결과물 v${version} 완성` : '(빈 응답)')) + (assistantNote ? '\n' + assistantNote : '');
-        messages.push({ role: 'assistant', content: stored });
-        trimHtmlFromHistory();
+        // 히스토리에는 응답 원문을 그대로 쌓는다(append-only) — 전체 코드 응답이 곧 다음 턴들의 기준이 되고,
+        // 프리픽스가 바이트 단위로 안정되어 서버 프롬프트 캐시가 매 턴 적중한다.
+        if (keepInHistory) messages.push({ role: 'assistant', content: raw });
 
         if (!reply) reply = version
           ? `✨ 결과물을 v${version}(으)로 만들었어요. 오른쪽 미리보기를 확인해보세요!`
@@ -653,6 +646,8 @@
           model: usage.model || '',
           inputTokens: usage.inputTokens || 0,
           outputTokens: usage.outputTokens || 0,
+          cacheReadTokens: usage.cacheReadTokens || 0,   // 캐시 히트분 (기본 단가의 10%)
+          cacheWriteTokens: usage.cacheWriteTokens || 0, // 캐시 기록분 (기본 단가의 125%)
           totalTokens: usage.totalTokens || 0,
           createdAt: serverTimestamp(),
         });

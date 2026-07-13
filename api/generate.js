@@ -41,7 +41,8 @@ const SYSTEM_PROMPT = `너는 자유롭고 유능한 범용 AI 어시스턴트�
 
 [결과물 출력 방식 — 매우 중요]
 ① 새 작품을 만들 때, 또는 구조를 통째로 갈아엎을 때: \`\`\`html 코드블록 하나에 전체 파일을 넣는다.
-② 이미 만들어진 작품을 수정할 때(사용자 메시지에 [현재 작품 전체 코드]가 있을 때): 전체 파일을 다시 쓰지 말고, 아래 형식의 수정 블록만 출력한다. 파일이 커도 수정량만 출력하면 되니 길이 걱정이 없다.
+② 이미 만들어진 작품을 수정할 때(대화에 작품 코드가 있을 때 — [현재 작품 전체 코드]로 받았거나 네가 전체 코드를 만들었던 경우): 전체 파일을 다시 쓰지 말고, 아래 형식의 수정 블록만 출력한다. 파일이 커도 수정량만 출력하면 되니 길이 걱정이 없다.
+   ※ 네가 이전 턴들에서 보낸 \`\`\`edit 수정들은 이미 전부 코드에 적용돼 있다. SEARCH는 '원본 + 지금까지의 수정'이 반영된 최신 상태 기준으로 작성해라.
 \`\`\`edit
 <<<<<<< SEARCH
 (현재 코드에서 바꿀 부분 — 원본에서 그대로 복사, 들여쓰기·공백까지 정확히. 다른 곳과 겹치지 않게 3~8줄 정도로 고유하게)
@@ -98,17 +99,18 @@ async function callGemini(messages) {
 }
 
 // ── Claude 모델 라우터 ──
-// 기본 Haiku(가성비). 무거운 작업(3D·물리·게임엔진·시뮬·셰이더·멀티플레이) 신호가 있거나
-// 현재 작업물(누적 HTML)이 크면 Sonnet으로 자동 승급. CLAUDE_MODEL env가 있으면 그 값으로 고정(라우팅 끔).
+// 기본 Haiku(가성비). 무거운 작업(3D·물리·게임엔진·시뮬 등) 신호나 전면 재작성 요청만 Sonnet으로 승급.
+// ⚠️ '컨텍스트가 크면 승급' 규칙은 제거 — 부분 수정(```edit) 도입 후 큰 작품의 사소한 수정까지
+//    Sonnet(입력 단가 3배)으로 가던 것이 비용 주범이었다. 수정 작업은 Haiku로 충분.
 const CLAUDE_HAIKU = 'claude-haiku-4-5';
 const CLAUDE_SONNET = 'claude-sonnet-4-6';
 function pickClaudeModel(messages) {
   if (process.env.CLAUDE_MODEL) return process.env.CLAUDE_MODEL; // 수동 고정
   const lastUser = [...messages].reverse().find(m => m.role === 'user');
-  const text = (lastUser && lastUser.content) || '';
+  const text = ((lastUser && lastUser.content) || '').split('[요청]').pop(); // 코드 본문 제외, 요청문만
   const heavy = /three\.?js|webgl|3d|3차원|물리|physics|시뮬|simulat|셰이더|shader|멀티플레이|multiplayer|phaser|matter\.?js|cannon|rpg|플랫포머|platformer/i;
-  const totalLen = messages.reduce((n, m) => n + ((m.content && m.content.length) || 0), 0);
-  if (heavy.test(text) || totalLen > 14000) return CLAUDE_SONNET;
+  const rebuild = /갈아엎|처음부터 다시|전면 개편|전부 다시 만들|전체를 다시/;
+  if (heavy.test(text) || rebuild.test(text)) return CLAUDE_SONNET;
   return CLAUDE_HAIKU;
 }
 
@@ -128,9 +130,16 @@ async function callClaudeStream(messages, model, onDelta) {
     body: JSON.stringify({
       model,
       max_tokens: 64000, // 모델 최대치 — 전체 재생성(새 작품·갈아엎기)용 여유. 일상 수정은 ```edit 부분 수정이라 출력이 작다.
-      system: SYSTEM_PROMPT,
+      // 프롬프트 캐싱: 시스템 프롬프트 + 마지막 메시지까지의 전체 프리픽스를 캐시.
+      // 스튜디오 히스토리는 append-only라 다음 턴이 이 프리픽스를 그대로 확장 → 캐시 히트(입력 90% 할인).
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       stream: true,
-      messages: messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+      messages: messages.map((m, i) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: i === messages.length - 1
+          ? [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }]
+          : m.content,
+      })),
     }),
   });
 
@@ -139,7 +148,7 @@ async function callClaudeStream(messages, model, onDelta) {
     throw new Error(`Claude API 오류 (${res.status}): ${errText.slice(0, 300)}`);
   }
 
-  let inputTokens = 0, outputTokens = 0;
+  let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
@@ -156,13 +165,21 @@ async function callClaudeStream(messages, model, onDelta) {
       if (!payload) continue;
       let ev;
       try { ev = JSON.parse(payload); } catch { continue; }
-      if (ev.type === 'message_start') inputTokens = (ev.message && ev.message.usage && ev.message.usage.input_tokens) || 0;
+      if (ev.type === 'message_start') {
+        const u = (ev.message && ev.message.usage) || {};
+        inputTokens = u.input_tokens || 0;
+        cacheReadTokens = u.cache_read_input_tokens || 0;
+        cacheWriteTokens = u.cache_creation_input_tokens || 0;
+      }
       else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') onDelta(ev.delta.text || '');
       else if (ev.type === 'message_delta') outputTokens = (ev.usage && ev.usage.output_tokens) || outputTokens;
       else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'Claude 스트림 오류');
     }
   }
-  return { usage: { model, inputTokens, outputTokens, totalTokens: inputTokens + outputTokens } };
+  return { usage: {
+    model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens,
+    totalTokens: inputTokens + cacheReadTokens + cacheWriteTokens + outputTokens,
+  } };
 }
 
 // ── 레이트리밋 (인메모리, 베스트에포트) ──

@@ -725,14 +725,16 @@
         tbody.innerHTML = '<tr class="loading-row"><td colspan="6">아직 AI 호출 기록이 없어요.</td></tr>';
         return;
       }
-      // 모델별 집계
+      // 모델별 집계 (캐시 읽기=기본 입력단가의 10%, 캐시 쓰기=125%)
       const byModel = {};
       allUsage.forEach(u => {
         const m = u.model || '(미상)';
-        if (!byModel[m]) byModel[m] = { calls: 0, in: 0, out: 0, total: 0 };
+        if (!byModel[m]) byModel[m] = { calls: 0, in: 0, out: 0, cr: 0, cw: 0, total: 0 };
         byModel[m].calls++;
         byModel[m].in += u.inputTokens || 0;
         byModel[m].out += u.outputTokens || 0;
+        byModel[m].cr += u.cacheReadTokens || 0;
+        byModel[m].cw += u.cacheWriteTokens || 0;
         byModel[m].total += u.totalTokens || 0;
       });
 
@@ -740,13 +742,15 @@
       let grand = { calls: 0, in: 0, out: 0, total: 0, cost: 0 };
       Object.entries(byModel).sort((a, b) => b[1].total - a[1].total).forEach(([model, s]) => {
         const r = rateFor(model);
-        const cost = r ? (s.in / 1e6) * r.in + (s.out / 1e6) * r.out : null;
-        grand.calls += s.calls; grand.in += s.in; grand.out += s.out; grand.total += s.total;
+        const cost = r ? (s.in / 1e6) * r.in + (s.cw / 1e6) * r.in * 1.25 + (s.cr / 1e6) * r.in * 0.10 + (s.out / 1e6) * r.out : null;
+        grand.calls += s.calls; grand.in += s.in + s.cr + s.cw; grand.out += s.out; grand.total += s.total;
         if (cost != null) grand.cost += cost;
+        const cacheNote = (s.cr || s.cw)
+          ? `<br><span class="td-muted" style="font-size:11px">└ 캐시 읽기 ${s.cr.toLocaleString()} · 쓰기 ${s.cw.toLocaleString()}</span>` : '';
         rows += `<tr>
           <td>${escapeHtml(model)}</td>
           <td>${s.calls.toLocaleString()}</td>
-          <td>${s.in.toLocaleString()}</td>
+          <td>${s.in.toLocaleString()}${cacheNote}</td>
           <td>${s.out.toLocaleString()}</td>
           <td>${s.total.toLocaleString()}</td>
           <td>${cost != null ? '$' + cost.toFixed(4) : '—'}</td>

@@ -42,7 +42,7 @@
   - 레거시 `round` 필드("1차" 등)가 일부 남아있을 수 있음 — 신규는 version 사용.
 - `students/{이름}`: `name, password(SHA-256 해시), photoURL?, createdAt`
 - `comments/{id}`: `workId, author, content, createdAt`
-- `usage/{id}`: `model, inputTokens, outputTokens, totalTokens, createdAt` — AI 스튜디오 호출 1건당 1문서.
+- `usage/{id}`: `model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, totalTokens, createdAt` — AI 스튜디오 호출 1건당 1문서.
   studio.html이 응답받은 토큰 수를 클라에서 기록. admin.html이 모델별 집계·추정비용 표시(요율표 `TOKEN_RATES`).
 
 ## AI 스튜디오 / 서버리스 함수 (`api/generate.js`)
@@ -54,10 +54,10 @@
   - `ANTHROPIC_API_KEY` + `CLAUDE_MODEL`(선택 — 설정 시 그 모델로 고정. **비우면 라우터가 Haiku⇄Sonnet 자동 선택**)
 - **레이트리밋**: `/api/generate`는 로그인 없이 호출 가능하므로 IP당 분당 호출 상한(인메모리, 기본 12/분)으로 비용 남용을 1차 방어. 강한 보장은 Vercel KV/Firestore 카운터로 확장.
 - **부분 수정(````edit`) 프로토콜** (컨텍스트 한계 해소의 핵심): 기존 작품 수정 시 모델이 전체 파일 대신 `SEARCH/REPLACE` 수정 블록만 출력 → studio가 `applyEdits`(utils.js)로 현재 코드에 적용(전부 일치해야 반영, 공백 유연 매칭 폴백). 새 작품/전면 개편만 통짜 ````html`. **작품 크기와 무관하게 수정 가능** + 속도/비용 수십 배 개선. 프로토콜 정의는 `SYSTEM_PROMPT`(api/generate.js), 파서는 `extractEdits`(utils.js).
-- **스튜디오 히스토리 구조**: 저장 히스토리는 '대화만'(코드블록은 자리표시자로 치환). **현재 작품 코드는 매 요청 직전 마지막 user 메시지에 최신본 1부만 주입**(`[현재 작품 전체 코드]`) → 대화가 길어져도·작품이 커져도 입력 토큰 비누적, 모델은 항상 정확한 최신 코드 기준으로 수정.
+- **스튜디오 히스토리 구조 + 프롬프트 캐싱** (토큰 비용의 핵심): 히스토리는 **append-only 원문 그대로**(코드 전문은 딱 한 번 — 첫 수정 시작 시 `[현재 작품 전체 코드]` 주입 또는 모델의 전체 생성 응답). 서버가 system+마지막 메시지에 `cache_control`을 걸어 **프리픽스 전체가 매 턴 캐시 히트**(입력 90% 할인, TTL 5분 — 수업 리듬에 맞음). 모델은 "원본+자기가 낸 ```edit들"로 최신 상태를 추적(SYSTEM_PROMPT에 명시). **SEARCH 불일치 시 히스토리를 비워 다음 턴에 최신 코드로 재기준**(자동 복구). 32개 메시지 또는 220K자 초과 시 컴팩션(비우고 재주입). ⚠️ 히스토리를 중간에 수정하면 캐시가 전부 미스나므로 append-only를 지킬 것.
 - **생성 크기 한도**: `max_tokens` **64000**(모델 최대) — 전체 재생성(새 작품·갈아엎기)용. 일상 수정은 부분 수정이라 출력이 작음. 최종 저장 상한은 Firestore `fullHtml` <500KB (studio 미리보기 툴바에 **크기 게이지** 표시). 제작 가이드: `PLATFORM.md`.
 - **잘림 방어** (실사고 후 도입 — 잘린 코드가 v9로 저장돼 작품 파손): ① `extractHtml`(utils.js)이 닫히지 않은 코드펜스(= max_tokens로 끊긴 응답)를 감지하면 잘린 코드를 채팅에 노출하지 않고 경고로 치환 ② submit(전체 HTML 모드)·studio 게시는 코드가 `</html>`로 끝나지 않으면 confirm으로 재확인.
-- **모델 라우터** (`pickClaudeModel`, api/generate.js): Claude 사용 시 기본 Haiku, 무거운 작업 신호(3D·물리·게임엔진·시뮬·셰이더·멀티플레이) 또는 큰 작업물(누적 >14KB)이면 Sonnet으로 자동 승급 → 가성비 유지하며 복잡한 것만 고품질. `CLAUDE_MODEL` 설정 시 라우팅 끔(고정). admin "AI 사용량"에서 모델별 분포 확인 가능.
+- **모델 라우터** (`pickClaudeModel`, api/generate.js): Claude 사용 시 기본 Haiku. **무거운 작업 신호(3D·물리·시뮬 등)나 전면 재작성 요청만** Sonnet 승급 — '컨텍스트 크면 승급' 규칙은 제거(부분 수정 도입 후 큰 작품의 사소한 수정까지 3배 단가로 가던 비용 주범). `CLAUDE_MODEL` 설정 시 라우팅 끔(고정). admin "AI 사용량"에서 모델별 분포·캐시 히트 확인 가능.
 - 요청 `POST /api/generate { messages:[{role,content}] }` → 응답 `{ reply, html, usage }` (`reply`=대화 텍스트, `html`=추출된 통짜 결과물, 없으면 `''`).
 - **`SYSTEM_PROMPT`**(api/generate.js 상단)는 "자유로운 범용 AI"로 두되 플랫폼 배경(쇼케이스/학생/어린이 교구)·스튜디오 흐름·게시 버튼 동작·코드 환경 제약(통짜 HTML·CDN만)을 알려준다. `extractHtml`이 ```html 코드블록만 결과물로 분리하고 나머지는 대화로 처리(티키타카).
   - ⭐ **플랫폼 기능을 바꾸면 `SYSTEM_PROMPT`도 같이 갱신한다** — AI가 화면/기능을 잘못 안내하지 않도록 (예: 게시 버튼·새 페이지·새 흐름 추가 시 프롬프트에 반영).
